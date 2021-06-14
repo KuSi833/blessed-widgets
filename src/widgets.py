@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Union, List, Optional
 from blessed import Terminal
 from abc import ABC
-from helpers import Point, start_coordinates
+from helpers import Point, key_coordinates, align_text_in_square
 from constants import HAlignment, VAlignment
 from exceptions import PaddingOverflow
 
@@ -19,7 +19,7 @@ class Square(Element):
     def __init__(self, window: Window, p1: Point, p2: Point, color) -> None:
         super().__init__(window, p1, p2)
         self.color = color
-        self.start_x, self.end_x, self.start_y, self.end_y = start_coordinates(self.p1, self.p2)
+        self.start_x, self.end_x, self.start_y, self.end_y = key_coordinates(self.p1, self.p2)
         self.height = self.end_y - self.start_y + 1
         self.width = self.end_x - self.start_x + 1
 
@@ -54,7 +54,7 @@ class Button(Element):
         self.bg_color = bg_color
 
         # Additional fields
-        self.start_x, self.end_x, self.start_y, self.end_y = start_coordinates(self.p1, self.p2)
+        self.start_x, self.end_x, self.start_y, self.end_y = key_coordinates(self.p1, self.p2)
         self.width = self.end_x - self.start_x
         self.height = self.end_y - self.start_y
         self.middle_x = self.width // 2
@@ -63,7 +63,7 @@ class Button(Element):
         # Padding
         if self.padding is None:
             self.padding = [0] * 4
-        else: # Padding overflow checking
+        else:  # Padding overflow checking
             if self.width < self.padding[1] + self.padding[3]:
                 raise PaddingOverflow("Ammount of padding on x axis exceeds button width")
             if self.height < self.padding[0] + self.padding[2]:
@@ -76,29 +76,10 @@ class Button(Element):
             self.bg_color = self.window.term.normal
         self.square = Square(self.window, self.p1, self.p2, self.bg_color)
 
-    def align(self) -> tuple[int, int, str]:
-        max_text_len = self.width - (self.padding[1] + self.padding[3])
-        text = self.text[:max_text_len]
-
-        if self.h_align is HAlignment.LEFT:
-            text_start_x = self.start_x + self.padding[3]
-        elif self.h_align is HAlignment.MIDDLE:
-            text_start_x = self.start_x + self.padding[3] + (self.width // 2) - (len(text) // 2)
-        elif self.h_align is HAlignment.RIGHT:
-            text_start_x = self.end_x - self.padding[1] - max_text_len
-
-        if self.v_align is VAlignment.TOP:
-            text_start_y = self.start_y + self.padding[0]
-        elif self.v_align is VAlignment.MIDDLE:
-            text_start_y = self.start_y + self.padding[0] + (self.height // 2)
-        elif self.v_align is VAlignment.BOTTOM:
-            text_start_y = self.end_y - self.padding[2]
-
-        return text_start_x, text_start_y, text
-
     def draw(self):
         self.square.draw()
-        text_start_x, text_start_y, text = self.align()
+        text_start_x, text_start_y, text = align_text_in_square(
+            self.p1, self.p2, self.text, self.padding, self.h_align, self.v_align)
         command = ''
         command = ''.join((
             self.window.term.move_xy(text_start_x, text_start_y),
