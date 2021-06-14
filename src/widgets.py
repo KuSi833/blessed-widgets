@@ -1,10 +1,15 @@
 from __future__ import annotations
-from typing import Union, List, Optional
+from typing import Union, List, Optional, NewType
 from blessed import Terminal
 from abc import ABC
+
+from colorama import Style
 from helpers import Point, key_coordinates, align_text_in_square
-from constants import HAlignment, VAlignment
+from constants import HAlignment, VAlignment, ButtonState, TextStyle
 from exceptions import PaddingOverflow
+
+
+Color = NewType('Color', str)
 
 
 class Element(ABC):
@@ -35,13 +40,22 @@ class Square(Element):
         print(command)
 
 
+class ButtonStyle():
+    def __init__(self, bg_color: Color, text_style) -> None:
+        self.bg_color = bg_color
+        self.text_style = text_style
+
+
 class Button(Element):
-    def __init__(self, window: Window, p1: Point, p2: Point,
+    def __init__(self, window: Window, p1: Point, p2: Point, style: ButtonStyle,
                  text: Optional[str] = None,
                  h_align: Optional[HAlignment] = HAlignment.MIDDLE,
                  v_align: Optional[VAlignment] = VAlignment.MIDDLE,
                  padding: Optional[tuple[int, int, int, int]] = None,
-                 text_color=None, bg_color=None) -> None:
+                 disabled_style: Optional[ButtonState] = None,
+                 selected_style: Optional[ButtonState] = None,
+                 clicked_style: Optional[ButtonState] = None,
+                 ) -> None:
         super().__init__(window, p1, p2)
         self.window = window
         self.p1 = p1
@@ -50,8 +64,13 @@ class Button(Element):
         self.h_align = h_align
         self.v_align = v_align
         self.padding = padding
-        self.text_color = text_color
-        self.bg_color = bg_color
+        self.state = ButtonState.IDLE
+
+        # Styles
+        self.style = style
+        self.disabled_style = disabled_style
+        self.selected_style = selected_style
+        self.clicked_style = clicked_style
 
         # Additional fields
         self.start_x, self.end_x, self.start_y, self.end_y = key_coordinates(self.p1, self.p2)
@@ -69,22 +88,33 @@ class Button(Element):
             if self.height < self.padding[0] + self.padding[2]:
                 raise PaddingOverflow("Ammount of padding on y axis exceeds button height")
 
-        # Optional coloring
-        if text_color is None:
-            self.text_color = self.window.term.white
-        if bg_color is None:
-            self.bg_color = self.window.term.normal
-        self.square = Square(self.window, self.p1, self.p2, self.bg_color)
+        self.square = Square(self.window, self.p1, self.p2, style.bg_color)
+
+    def get_style(self) -> ButtonStyle:
+        if self.state is ButtonState.IDLE:
+            return self.style
+        elif self.state is ButtonState.DISABLED:
+            return self.disabled_style
+        elif self.state is ButtonState.CLICKED:
+            return self.clicked_style
+        elif self.state is ButtonState.SELECTED:
+            return self.selected_style
 
     def draw(self):
+        active_style = self.get_style()
+
+        # Update square
+        self.square.color = active_style.bg_color
         self.square.draw()
+        
+        # Alignment
         text_start_x, text_start_y, text = align_text_in_square(
             self.p1, self.p2, self.text, self.padding, self.h_align, self.v_align)
-        command = ''
+
         command = ''.join((
             self.window.term.move_xy(text_start_x, text_start_y),
-            self.text_color,
-            self.bg_color,
+            active_style.text_style,
+            active_style.bg_color,
             text,
             self.window.term.normal
         ))
