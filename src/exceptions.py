@@ -1,0 +1,2 @@
+class PaddingOverflow(Exception):
+    pass

@@ -9,8 +9,7 @@ term = Terminal()
 window = Window(term)
 enterButton = Button(window, Point(12, 12), Point(26, 14), "Check",
                      text_color=term.black, bg_color=term.on_orange,
-                     h_align=HAlignment.LEFT, v_align=VAlignment.BOTTOM,
-                     padding=[2, 5, 2, 5])
+                     h_align=HAlignment.MIDDLE, v_align=VAlignment.MIDDLE)
 
 window.clear()
 enterButton.draw()
