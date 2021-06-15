@@ -1,10 +1,14 @@
 from __future__ import annotations
 from blessed import Terminal
 from exceptions import PaddingOverflow
+import numpy as np
 
 from typing import Union, List, Optional, NewType
 from abc import ABC, abstractclassmethod
-from constants import Direction, HAlignment, VAlignment, ButtonState, Side, WindowState
+from helpers import gaussian
+from constants import (
+    Direction, HAlignment, VAlignment, ButtonState,
+    Side, WindowState, MAX_ANGLE)
 
 
 def fill_rectangle(window: Window, rectangle: Rectangle, color):
@@ -57,6 +61,10 @@ class Element(ABC):
         self.p2 = p2
         self.window = window
         self.window.add_element(self)
+
+    @abstractclassmethod
+    def draw(self) -> None:
+        pass
 
 
 class Interactable(ABC):
@@ -253,8 +261,37 @@ class Window():
 
         return extreme_element
 
-    def find_element(self, direction: Direction) -> Element:
-        pass
+    def find_element(self, direction: Direction) -> Interactable:
+        active_element_center = self.active_element.get_border().get_center()
+        min_wighted_distance = float('inf')
+        closest_element: Optional[Interactable] = None
+        for element in self.interactable:
+            if element != self.active_element:
+                element_center = element.get_border().get_center()
+
+                delta_x = element_center.x - active_element_center.x
+                delta_y = element_center.y - active_element_center.y
+                c = complex(delta_x, delta_y)
+
+                argument = np.angle(c, deg=True)
+                if argument < 0:
+                    argument += 360
+
+                delta_angle = abs(direction.value - argument)
+
+                if delta_angle > MAX_ANGLE:
+                    continue
+
+                distance = np.linalg.norm(np.array((delta_x, delta_y)))
+
+                # Calculating weighted distance
+                weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
+
+                if weighted_distance < min_wighted_distance:
+                    min_wighted_distance = weighted_distance
+                    closest_element = element
+
+        return closest_element
 
     def key_event(self, val) -> None:
         if not val:
@@ -277,22 +314,26 @@ class Window():
                     if self.active_element is not None:
                         self.active_element.toggle_select()
             else:
-                if False:
-                    if val.is_sequence:
-                        if val.name == "KEY_UP":
-                            self.active_element = self.get_extreme_element(Direction.UP)
-                        elif val.name == "KEY_RIGHT":
-                            self.active_element = self.get_extreme_element(Direction.RIGHT)
-                        elif val.name == "KEY_DOWN":
-                            self.active_element = self.get_extreme_element(Direction.DOWN)
-                        elif val.name == "KEY_LEFT":
-                            self.active_element = self.get_extreme_element(Direction.LEFT)
-                        elif val.name == "KEY_ESCAPE":
-                            self.window_state = WindowState.VIEW
-
+                if val.is_sequence:
+                    if val.name == "KEY_UP":
+                        direction = Direction.UP
+                    elif val.name == "KEY_RIGHT":
+                        direction = Direction.RIGHT
+                    elif val.name == "KEY_DOWN":
+                        direction = Direction.DOWN
+                    elif val.name == "KEY_LEFT":
+                        direction = Direction.LEFT
+                    elif val.name == "KEY_ESCAPE":
+                        self.window_state = WindowState.VIEW
                         self.active_element.toggle_select()
-                    elif val:
-                        pass
+                    if direction:  # If a key is pressed which gives direction
+                        next_element = self.find_element(direction)
+                    if next_element:  # If a good next element is found
+                        self.active_element.toggle_select()
+                        self.active_element = next_element
+                        self.active_element.toggle_select()
+                elif val:
+                    pass
 
     def loop(self):
         with self.term.cbreak():
