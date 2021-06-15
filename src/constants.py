@@ -24,8 +24,22 @@ class ButtonState(Enum):
 
 
 @unique
-class Sides(Enum):
+class Side(Enum):
     TOP = auto()
     RIGHT = auto()
     BOTTOM = auto()
+    LEFT = auto()
+
+
+@unique
+class WindowState(Enum):
+    VIEW = auto()
+    SELECTION = auto()
+
+
+@unique
+class Direction(Enum):
+    UP = auto()
+    RIGHT = auto()
+    DOWN = auto()
     LEFT = auto()
