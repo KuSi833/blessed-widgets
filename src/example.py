@@ -1,17 +1,21 @@
-from ssl import HAS_ALPN
-from xml.dom import VALIDATION_ERR
+from __future__ import annotations
 from widgets import Square, Window, Button, Point, ButtonStyle
 from blessed import Terminal
 from constants import HAlignment, VAlignment
-from time import sleep
+from time import sleep, time
 
 term = Terminal()
 
 window = Window(term)
-enterButton = Button(window, Point(12, 12), Point(26, 14), text="Check",
-                     style=ButtonStyle(term.on_orange, term.bold_black),
+checkButton = Button(window, Point(0, 0), Point(15, 2), text="Check",
+                     style=ButtonStyle(term.on_darkgreen, term.white),
+                     h_align=HAlignment.MIDDLE, v_align=VAlignment.MIDDLE)
+resetButton = Button(window, Point(27, 14), Point(41, 16), text="Reset",
+                     style=ButtonStyle(term.on_red4, term.white),
                      h_align=HAlignment.MIDDLE, v_align=VAlignment.MIDDLE)
 
 window.clear()
-enterButton.draw()
+checkButton.draw()
+resetButton.draw()
+
 print(term.home)
