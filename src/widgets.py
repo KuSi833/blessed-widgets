@@ -56,12 +56,10 @@ class Element(ABC):
         self.p1 = p1
         self.p2 = p2
         self.window = window
+        self.window.add_element(self)
 
 
-class InteractableElement(Element):
-    def __init__(self, window: Window, p1: Point, p2: Point) -> None:
-        super().__init__(window, p1, p2)
-
+class Interactable(ABC):
     @abstractclassmethod
     def toggle_select(self) -> None:
         pass
@@ -112,7 +110,7 @@ class ButtonStyle():
         self.text_style = text_style
 
 
-class Button(InteractableElement):
+class Button(Element, Interactable):
     def __init__(self, window: Window, p1: Point, p2: Point, style: ButtonStyle,
                  text: Optional[str] = None,
                  h_align: Optional[HAlignment] = HAlignment.MIDDLE,
@@ -125,7 +123,6 @@ class Button(InteractableElement):
         super().__init__(window, p1, p2)
         self.border = Rectangle(p1, p2)
         self.window = window
-        self.window.add_element(self)
         self.text = text
         self.h_align = h_align
         self.v_align = v_align
@@ -200,18 +197,19 @@ class Window():
     def __init__(self, term: Terminal) -> None:
         self.term = term
         self.window_state = WindowState.VIEW
-        self.active_element: Optional[InteractableElement] = None
+        self.active_element: Optional[Interactable] = None
         # Initialising element field
         self.elements: List[Element] = []
+        self.interactable: List[Interactable] = []
 
     def add_element(self, element: Element) -> None:
         self.elements.append(element)
+        if issubclass(type(element), Interactable):
+            self.interactable.append(element)
 
     def add_elements(self, *elements: Element) -> None:
-        self.elements.extend(elements)
-
-    def get_interactable(self) -> List[InteractableElement]:
-        return list(filter(lambda element: issubclass(type(element), InteractableElement), self.elements))
+        for element in elements:
+            self.add_element(element)
 
     def move_xy(self, p: Point, home: bool = True) -> str:
         """
@@ -226,29 +224,29 @@ class Window():
     def clear(self) -> None:
         print(self.term.clear)
 
-    def get_extreme_element(self, direction: Direction) -> Optional[InteractableElement]:
-        extreme_element: Optional[InteractableElement] = None
+    def get_extreme_element(self, direction: Direction) -> Optional[Interactable]:
+        extreme_element: Optional[Interactable] = None
         if direction is Direction.UP:
             highest_y = 0
-            for element in self.get_interactable():
+            for element in self.interactable:
                 if element.get_border().get_edge(Side.TOP) >= highest_y:
                     highest_y = element.get_border().get_edge(Side.TOP)
                     extreme_element = element
         elif direction is Direction.RIGHT:
             highest_x = 0
-            for element in self.get_interactable():
+            for element in self.interactable:
                 if element.get_border().get_edge(Side.RIGHT) >= highest_x:
                     highest_x = element.get_border().get_edge(Side.RIGHT)
                     extreme_element = element
         elif direction is Direction.DOWN:
             lowest_y = float('inf')
-            for element in self.get_interactable():
+            for element in self.interactable:
                 if element.get_border().get_edge(Side.BOTTOM) <= lowest_y:
-                    highest_x = element.get_border().get_edge(Side.BOTTOM)
+                    lowest_y = element.get_border().get_edge(Side.BOTTOM)
                     extreme_element = element
         elif direction is Direction.LEFT:
             lowest_x = float('inf')
-            for element in self.get_interactable():
+            for element in self.interactable:
                 if element.get_border().get_edge(Side.LEFT) <= lowest_x:
                     lowest_x = element.get_border().get_edge(Side.LEFT)
                     extreme_element = element

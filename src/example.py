@@ -13,6 +13,7 @@ checkButton = Button(window, Point(0, 0), Point(15, 2), text="Check",
                      h_align=HAlignment.MIDDLE, v_align=VAlignment.MIDDLE)
 resetButton = Button(window, Point(27, 12), Point(41, 14), text="Reset",
                      style=ButtonStyle(term.on_red4, term.white),
+                     selected_style=ButtonStyle(term.on_red4, term.underline_yellow),
                      h_align=HAlignment.MIDDLE, v_align=VAlignment.MIDDLE)
 
 window.clear()
