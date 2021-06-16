@@ -1,7 +1,7 @@
 from enum import Enum, auto, unique
 
 # Maximum angle between diraction of movement and center of widget
-MAX_ANGLE = 50
+MAX_ANGLE = 70
 
 
 @unique
@@ -46,3 +46,9 @@ class Direction(Enum):
     LEFT = 180
     DOWN = 270
     RIGHT = 0
+
+
+@unique
+class BorderStyle(Enum):
+    SINGLE = auto()
+    DOUBLE = auto()

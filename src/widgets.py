@@ -1,51 +1,14 @@
 from __future__ import annotations
 from blessed import Terminal
-from exceptions import PaddingOverflow
+from exceptions import PaddingOverflow, RectangleTooSmall
 import numpy as np
 
 from typing import Union, List, Optional, NewType
 from abc import ABC, abstractclassmethod
 from helpers import gaussian
 from constants import (
-    Direction, HAlignment, VAlignment, ButtonState,
+    BorderStyle, Direction, HAlignment, VAlignment, ButtonState,
     Side, WindowState, MAX_ANGLE)
-
-
-def fill_rectangle(window: Window, rectangle: Rectangle, color):
-    command = ''
-    command += color
-
-    for row in range(rectangle.get_edge(Side.BOTTOM), rectangle.get_edge(Side.TOP) + 1):
-        command += window.move_xy(Point(rectangle.get_edge(Side.LEFT), row))
-        command += " " * rectangle.get_width()
-
-    command += window.term.normal
-    print(command)
-
-
-def align_text_in_rectangle(rectangle: Rectangle, text: str,
-                            padding: List[int],
-                            h_align: HAlignment, v_align: VAlignment
-                            ) -> tuple[int, int, str]:
-
-    max_text_len = rectangle.get_width() - (padding[1] + padding[3])
-    text = text[:max_text_len]
-
-    if h_align is HAlignment.LEFT:
-        text_start_x = rectangle.get_edge(Side.LEFT) + padding[3]
-    elif h_align is HAlignment.MIDDLE:
-        text_start_x = rectangle.get_edge(Side.LEFT) + padding[3] + (rectangle.get_width() // 2) - (len(text) // 2)
-    elif h_align is HAlignment.RIGHT:
-        text_start_x = rectangle.get_edge(Side.RIGHT) - padding[1] - max_text_len
-
-    if v_align is VAlignment.TOP:
-        text_start_y = rectangle.get_edge(Side.TOP) + padding[0]
-    elif v_align is VAlignment.MIDDLE:
-        text_start_y = rectangle.get_edge(Side.TOP) - padding[0] - (rectangle.get_height() // 2)
-    elif v_align is VAlignment.BOTTOM:
-        text_start_y = rectangle.get_edge(Side.BOTTOM) + padding[2]
-
-    return text_start_x, text_start_y, text
 
 
 class Point():
@@ -85,6 +48,14 @@ class Rectangle():
             "bl": Point(min(p1.x, p2.x), min(p1.y, p2.y)),
             "br": Point(max(p1.x, p2.x), min(p1.y, p2.y))
         }
+        self.bg_color = None
+        self.border_color = None
+        self.border_style = None
+        self.text = None
+        self.text_style = None
+        self.padding = [0] * 4
+        self.h_align = None
+        self.v_align = None
 
     def get_edge(self, side: Side) -> int:
         if side is Side.TOP:
@@ -111,11 +82,102 @@ class Rectangle():
     def get_center(self) -> Point:
         return Point(self.get_middle_x(), self.get_middle_y())
 
+    def add_bg_color(self, color) -> None:
+        self.bg_color = color
+
+    def add_border(self, border_style: BorderStyle, color: Optional[str] = None) -> None:
+        self.border_style = border_style
+        self.border_color = color
+
+    def insert_text(self, text, text_style: Optional[str] = None, padding: Optional[List[int]] = None,
+                    h_align: Optional[HAlignment] = HAlignment.MIDDLE,
+                    v_align: Optional[VAlignment] = VAlignment.MIDDLE) -> None:
+        self.text = text
+        self.text_style = text_style
+        self.padding = padding
+        self.h_align = h_align
+        self.v_align = v_align
+
+    def draw(self, window: Window):
+        command = ''
+        if self.bg_color:
+            command += self.bg_color
+
+        # Color and border
+        if self.border_style:
+            if self.get_width() < 2 or self.get_height() < 2:
+                raise RectangleTooSmall("Unable to fit border on such small rectangle, must be at least 2x2")
+            else:
+                if self.border_color:
+                    command += self.border_color
+                for row in range(self.get_edge(Side.BOTTOM), self.get_edge(Side.TOP) + 1):
+                    command += window.move_xy(Point(self.get_edge(Side.LEFT), row))
+                    if row == self.get_edge(Side.BOTTOM):
+                        if self.border_style is BorderStyle.SINGLE:
+                            command += "└" + "─" * (self.get_width() - 2) + "┘"
+                        elif self.border_style is BorderStyle.DOUBLE:
+                            command += "╚" + "═" * (self.get_width() - 2) + "╝"
+                    elif row == self.get_edge(Side.TOP):
+                        if self.border_style is BorderStyle.SINGLE:
+                            command += "┌" + "─" * (self.get_width() - 2) + "┐"
+                        elif self.border_style is BorderStyle.DOUBLE:
+                            command += "╔" + "═" * (self.get_width() - 2) + "╗"
+                    else:
+                        if self.border_style is BorderStyle.SINGLE:
+                            command += "│" + " " * (self.get_width() - 2) + "│"
+                        elif self.border_style is BorderStyle.DOUBLE:
+                            command += "║" + " " * (self.get_width() - 2) + "║"
+
+        else:
+            for row in range(self.get_edge(Side.BOTTOM), self.get_edge(Side.TOP) + 1):
+                command += window.move_xy(Point(self.get_edge(Side.LEFT), row))
+                command += " " * self.get_width()
+        print(command)
+        window.flush()
+
+        command = ''
+
+        # Text
+        if self.text:
+            # Text style
+            if self.bg_color:
+                command += self.bg_color
+            if self.text_style:
+                command += self.text_style
+
+            # Cut of text if it wont fit
+            max_text_len = self.get_width() - (self.padding[1] + self.padding[3])
+            text = self.text[:max_text_len]
+
+            # Text alignment
+            # Horizontal
+            if self.h_align is HAlignment.LEFT:
+                text_start_x = self.get_edge(Side.LEFT) + self.padding[3]
+            elif self.h_align is HAlignment.MIDDLE:
+                text_start_x = self.get_edge(Side.LEFT) + self.padding[3] + (self.get_width() // 2) - (len(text) // 2)
+            elif self.h_align is HAlignment.RIGHT:
+                text_start_x = self.get_edge(Side.RIGHT) - self.padding[1] - max_text_len
+            # Vertical
+            if self.v_align is VAlignment.TOP:
+                text_start_y = self.get_edge(Side.TOP) + self.padding[0]
+            elif self.v_align is VAlignment.MIDDLE:
+                text_start_y = self.get_edge(Side.TOP) - self.padding[0] - (self.get_height() // 2)
+            elif self.v_align is VAlignment.BOTTOM:
+                text_start_y = self.get_edge(Side.BOTTOM) + self.padding[2]
+
+            command += window.move_xy(Point(text_start_x, text_start_y))
+            command += text
+            print(command)
+
+        window.flush()
+
 
 class ButtonStyle():
-    def __init__(self, bg_color, text_style) -> None:
+    def __init__(self, bg_color, text_style, border_color=None, border_style: Optional[BorderStyle] = None) -> None:
         self.bg_color = bg_color
         self.text_style = text_style
+        self.border_color = border_color
+        self.border_style = border_style
 
 
 class Button(Element, Interactable):
@@ -183,22 +245,11 @@ class Button(Element, Interactable):
 
     def draw(self):
         active_style = self.get_style()
-
-        # Update square
-        fill_rectangle(self.window, self.border, active_style.bg_color)
-
-        # Alignment
-        text_start_x, text_start_y, text = align_text_in_rectangle(
-            self.border, self.text, self.padding, self.h_align, self.v_align)
-
-        command = ''.join((
-            self.window.move_xy(Point(text_start_x, text_start_y)),
-            active_style.text_style,
-            active_style.bg_color,
-            text,
-            self.window.term.normal
-        ))
-        print(command)
+        self.border.add_bg_color(color=active_style.bg_color)
+        self.border.add_border(border_style=active_style.border_style, color=active_style.border_color)
+        self.border.insert_text(text=self.text, text_style=active_style.text_style, padding=self.padding,
+                                h_align=self.h_align, v_align=self.v_align)
+        self.border.draw(self.window)
 
 
 class Window():
@@ -231,6 +282,10 @@ class Window():
 
     def clear(self) -> None:
         print(self.term.clear)
+
+    def flush(self) -> None:
+        "Resets pointer and color"
+        print(self.term.home + self.term.normal)
 
     def get_extreme_element(self, direction: Direction) -> Optional[Interactable]:
         extreme_element: Optional[Interactable] = None
@@ -314,6 +369,8 @@ class Window():
                     if self.active_element is not None:
                         self.active_element.toggle_select()
             else:
+                direction = None
+                next_element = None
                 if val.is_sequence:
                     if val.name == "KEY_UP":
                         direction = Direction.UP
@@ -323,7 +380,7 @@ class Window():
                         direction = Direction.DOWN
                     elif val.name == "KEY_LEFT":
                         direction = Direction.LEFT
-                    elif val.name == "KEY_ESCAPE":
+                    elif val.name == "KEY_ESCAPE" or val.name == "KEY_BACKSPACE":
                         self.window_state = WindowState.VIEW
                         self.active_element.toggle_select()
                     if direction:  # If a key is pressed which gives direction
