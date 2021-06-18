@@ -402,7 +402,6 @@ class Window():
             pass
         else:
             if self.window_state is WindowState.VIEW:
-                self.window_state = WindowState.SELECTION
                 if val.is_sequence:
                     if val.name == "KEY_UP":
                         self.active_element = self.get_extreme_element(Direction.UP)
@@ -417,6 +416,7 @@ class Window():
 
                     if self.active_element is not None:
                         self.active_element.toggle_select()
+                        self.window_state = WindowState.SELECTION
             else:
                 direction = None
                 next_element = None
