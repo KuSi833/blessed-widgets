@@ -172,23 +172,23 @@ class Rectangle():
         window.flush()
 
 
-class ButtonStyle():
-    def __init__(self, bg_color, text_style, border_color=None, border_style: Optional[BorderStyle] = None) -> None:
+class LabelStyle():
+    def __init__(self, bg_color: Optional[str] = None, text_style: Optional[str] = None,
+                 border_color: Optional[str] = None, border_style: Optional[BorderStyle] = None) -> None:
+        "Leave all parameters empty for default style (no background, no border, white text)"
         self.bg_color = bg_color
         self.text_style = text_style
         self.border_color = border_color
         self.border_style = border_style
 
 
-class Button(Element, Interactable):
-    def __init__(self, window: Window, p1: Point, p2: Point, style: ButtonStyle,
+class Label(Element):
+    def __init__(self, window: Window, p1: Point, p2: Point,
+                 style: Optional[LabelStyle] = None,
                  text: Optional[str] = None,
                  h_align: Optional[HAlignment] = HAlignment.MIDDLE,
                  v_align: Optional[VAlignment] = VAlignment.MIDDLE,
                  padding: Optional[List[int]] = None,
-                 disabled_style: Optional[ButtonStyle] = None,
-                 selected_style: Optional[ButtonStyle] = None,
-                 clicked_style: Optional[ButtonStyle] = None,
                  ) -> None:
         super().__init__(window, p1, p2)
         self.border = Rectangle(p1, p2)
@@ -196,26 +196,73 @@ class Button(Element, Interactable):
         self.text = text
         self.h_align = h_align
         self.v_align = v_align
-        self.padding = padding
+        self.set_padding(padding)
+        if style:
+            self.set_style(style)
         self.state = ButtonState.IDLE
 
-        # Styles
-        self.style = style
-        self.disabled_style = disabled_style
-        self.selected_style = selected_style
-        self.clicked_style = clicked_style
-
         # Padding
-        if self.padding is None:
+
+    def set_padding(self, padding: List[int]):
+        if padding is None:
             self.padding = [0] * 4
         else:  # Padding overflow checking
-            if self.border.get_width() < self.padding[1] + self.padding[3]:
+            if self.border.get_width() < padding[1] + padding[3]:
                 raise PaddingOverflow("Ammount of padding on x axis exceeds button width")
-            if self.border.get_height() < self.padding[0] + self.padding[2]:
+            if self.border.get_height() < padding[0] + padding[2]:
                 raise PaddingOverflow("Ammount of padding on y axis exceeds button height")
+            self.padding = padding
 
     def get_border(self) -> Rectangle:
         return self.border
+
+    def construct_default_style(self, style: Optional[LabelStyle] = None) -> LabelStyle:
+        if style is None:
+            # Default style
+            return LabelStyle(bg_color=self.window.term.normal, text_style=self.window.term.white,
+                              border_color=None, border_style=None)
+        else:
+            if style.bg_color:
+                bg_color = style.bg_color
+            else:
+                bg_color = self.window.term.normal  # Defualt bg_color
+            if style.text_style:
+                text_style = style.text_style
+            else:
+                text_style = self.window.term.white  # Default text_style
+            return LabelStyle(bg_color=bg_color, text_style=text_style,
+                              border_color=style.border_color, border_style=style.border_style)
+
+    def set_style(self, style: LabelStyle):
+        self.style = self.construct_default_style(style)
+
+    def get_style(self) -> LabelStyle:
+        return self.style
+
+    def draw(self):
+        active_style = self.get_style()
+        self.border.add_bg_color(color=active_style.bg_color)
+        self.border.add_border(border_style=active_style.border_style, color=active_style.border_color)
+        self.border.insert_text(text=self.text, text_style=active_style.text_style, padding=self.padding,
+                                h_align=self.h_align, v_align=self.v_align)
+        self.border.draw(self.window)
+
+
+class Button(Label, Interactable):
+    def __init__(
+            self, window: Window, p1: Point, p2: Point, style: Optional[LabelStyle] = None, text: Optional[str] = None,
+            h_align: Optional[HAlignment] = HAlignment.MIDDLE, v_align: Optional[VAlignment] = VAlignment.MIDDLE,
+            padding: Optional[List[int]] = None,
+            disabled_style: Optional[LabelStyle] = None, selected_style: Optional[LabelStyle] = None,
+            clicked_style: Optional[LabelStyle] = None) -> None:
+        super().__init__(window, p1, p2, text=text, h_align=h_align, v_align=v_align, padding=padding)
+        self.state = ButtonState.IDLE
+
+        # Styles
+        self.set_style(style, ButtonState.IDLE)
+        self.set_style(disabled_style, ButtonState.DISABLED)
+        self.set_style(selected_style, ButtonState.SELECTED)
+        self.set_style(clicked_style, ButtonState.CLICKED)
 
     def toggle_select(self) -> None:
         if self.state is ButtonState.SELECTED:
@@ -224,7 +271,17 @@ class Button(Element, Interactable):
             self.state = ButtonState.SELECTED
         self.draw()
 
-    def get_style(self) -> ButtonStyle:
+    def set_style(self, style: LabelStyle, state: ButtonState) -> None:
+        if state is ButtonState.IDLE:
+            self.style = super().construct_default_style(style)
+        elif state is ButtonState.DISABLED:
+            self.disabled_style = super().construct_default_style(style)
+        elif state is ButtonState.CLICKED:
+            self.clicked_style = super().construct_default_style(style)
+        elif state is ButtonState.SELECTED:
+            self.selected_style = super().construct_default_style(style)
+
+    def get_style(self) -> LabelStyle:
         if self.state is ButtonState.IDLE:
             return self.style
         elif self.state is ButtonState.DISABLED:
@@ -242,14 +299,6 @@ class Button(Element, Interactable):
                 return self.selected_style
             else:
                 return self.style
-
-    def draw(self):
-        active_style = self.get_style()
-        self.border.add_bg_color(color=active_style.bg_color)
-        self.border.add_border(border_style=active_style.border_style, color=active_style.border_color)
-        self.border.insert_text(text=self.text, text_style=active_style.text_style, padding=self.padding,
-                                h_align=self.h_align, v_align=self.v_align)
-        self.border.draw(self.window)
 
 
 class Window():
