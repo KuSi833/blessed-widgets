@@ -49,13 +49,13 @@ class Rectangle():
             "br": Point(max(p1.x, p2.x), min(p1.y, p2.y))
         }
         self.bg_color = None
-        self.border_color = None
-        self.border_style = None
+        self.border_color: Optional[str] = None
+        self.border_style: Optional[BorderStyle] = None
         self.text = None
-        self.text_style = None
-        self.padding = [0] * 4
-        self.h_align = None
-        self.v_align = None
+        self.text_style: Optional[str] = None
+        self.padding: Optional[List[int]] = None
+        self.h_align: Optional[HAlignment] = None
+        self.v_align: Optional[VAlignment] = None
 
     def get_edge(self, side: Side) -> int:
         if side is Side.TOP:
@@ -89,7 +89,7 @@ class Rectangle():
         self.border_style = border_style
         self.border_color = color
 
-    def insert_text(self, text, text_style: Optional[str] = None, padding: Optional[List[int]] = None,
+    def insert_text(self, text, text_style: Optional[str] = None, padding: Optional[List[int]] = [0] * 4,
                     h_align: Optional[HAlignment] = HAlignment.MIDDLE,
                     v_align: Optional[VAlignment] = VAlignment.MIDDLE) -> None:
         self.text = text
@@ -197,13 +197,11 @@ class Label(Element):
         self.h_align = h_align
         self.v_align = v_align
         self.set_padding(padding)
-        if style:
-            self.set_style(style)
+        self.set_style(style)
         self.state = ButtonState.IDLE
 
-        # Padding
-
-    def set_padding(self, padding: List[int]):
+    def set_padding(self, padding: Optional[List[int]]):
+        "If no padding is given a default [0, 0, 0, 0] is set"
         if padding is None:
             self.padding = [0] * 4
         else:  # Padding overflow checking
@@ -221,7 +219,7 @@ class Label(Element):
             # Default style
             return LabelStyle(bg_color=self.window.term.normal, text_style=self.window.term.white,
                               border_color=None, border_style=None)
-        else:
+        else:  # If style is given fill empty fields with default values
             if style.bg_color:
                 bg_color = style.bg_color
             else:
@@ -233,7 +231,8 @@ class Label(Element):
             return LabelStyle(bg_color=bg_color, text_style=text_style,
                               border_color=style.border_color, border_style=style.border_style)
 
-    def set_style(self, style: LabelStyle):
+    def set_style(self, style: Optional[LabelStyle]) -> None:
+        "If no style is given a default style is constructed"
         self.style = self.construct_default_style(style)
 
     def get_style(self) -> LabelStyle:
@@ -255,11 +254,10 @@ class Button(Label, Interactable):
             padding: Optional[List[int]] = None,
             disabled_style: Optional[LabelStyle] = None, selected_style: Optional[LabelStyle] = None,
             clicked_style: Optional[LabelStyle] = None) -> None:
-        super().__init__(window, p1, p2, text=text, h_align=h_align, v_align=v_align, padding=padding)
+        super().__init__(window, p1, p2, style=style, text=text, h_align=h_align, v_align=v_align, padding=padding)
         self.state = ButtonState.IDLE
 
         # Styles
-        self.set_style(style, ButtonState.IDLE)
         self.set_style(disabled_style, ButtonState.DISABLED)
         self.set_style(selected_style, ButtonState.SELECTED)
         self.set_style(clicked_style, ButtonState.CLICKED)
@@ -271,7 +269,8 @@ class Button(Label, Interactable):
             self.state = ButtonState.SELECTED
         self.draw()
 
-    def set_style(self, style: LabelStyle, state: ButtonState) -> None:
+    def set_style(self, style: Optional[LabelStyle], state: Optional[ButtonState] = ButtonState.IDLE) -> None:
+        "If no style is specified default values will be used"
         if state is ButtonState.IDLE:
             self.style = super().construct_default_style(style)
         elif state is ButtonState.DISABLED:
@@ -312,7 +311,7 @@ class Window():
 
     def add_element(self, element: Element) -> None:
         self.elements.append(element)
-        if issubclass(type(element), Interactable):
+        if isinstance(element, Interactable):
             self.interactable.append(element)
 
     def add_elements(self, *elements: Element) -> None:
@@ -365,43 +364,48 @@ class Window():
 
         return extreme_element
 
-    def find_element(self, direction: Direction) -> Interactable:
-        active_element_center = self.active_element.get_border().get_center()
-        min_wighted_distance = float('inf')
-        closest_element: Optional[Interactable] = None
-        for element in self.interactable:
-            if element != self.active_element:
-                element_center = element.get_border().get_center()
+    def find_element(self, direction: Direction) -> Optional[Interactable]:
+        if self.active_element is None:
+            raise TypeError("Unable to find element if actie_element isn't set")
+        else:
+            active_element_center = self.active_element.get_border().get_center()
+            min_wighted_distance = float('inf')
+            closest_element: Optional[Interactable] = None
+            for element in self.interactable:
+                if element != self.active_element:
+                    element_center = element.get_border().get_center()
 
-                delta_x = element_center.x - active_element_center.x
-                delta_y = element_center.y - active_element_center.y
-                c = complex(delta_x, delta_y)
+                    delta_x = element_center.x - active_element_center.x
+                    delta_y = element_center.y - active_element_center.y
+                    c = complex(delta_x, delta_y)
 
-                argument = np.angle(c, deg=True)
-                if argument < 0:
-                    argument += 360
+                    argument = np.angle(c, deg=True)
+                    if argument < 0:
+                        argument += 360
 
-                delta_angle = abs(direction.value - argument)
+                    delta_angle = abs(direction.value - argument)
 
-                if delta_angle > MAX_ANGLE:
-                    continue
+                    if delta_angle > MAX_ANGLE:
+                        continue
 
-                distance = np.linalg.norm(np.array((delta_x, delta_y)))
+                    distance = np.linalg.norm(np.array((delta_x, delta_y)))
 
-                # Calculating weighted distance
-                weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
+                    # Calculating weighted distance
+                    weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
 
-                if weighted_distance < min_wighted_distance:
-                    min_wighted_distance = weighted_distance
-                    closest_element = element
+                    if weighted_distance < min_wighted_distance:
+                        min_wighted_distance = weighted_distance
+                        closest_element = element
 
-        return closest_element
+            return closest_element
 
     def key_event(self, val) -> None:
         if not val:
             pass
         else:
             if self.window_state is WindowState.VIEW:
+                # Active element can't be set if WindowState.VIEW
+                assert(self.active_element is None)
                 if val.is_sequence:
                     if val.name == "KEY_UP":
                         self.active_element = self.get_extreme_element(Direction.UP)
@@ -411,13 +415,13 @@ class Window():
                         self.active_element = self.get_extreme_element(Direction.DOWN)
                     elif val.name == "KEY_LEFT":
                         self.active_element = self.get_extreme_element(Direction.LEFT)
-                    elif val.name == "KEY_ESCAPE":
-                        self.window_state = WindowState.VIEW
 
                     if self.active_element is not None:
                         self.active_element.toggle_select()
                         self.window_state = WindowState.SELECTION
             else:
+                # Active element must be set if WindowState.SELECTION
+                assert(self.active_element is not None)
                 direction = None
                 next_element = None
                 if val.is_sequence:
@@ -432,12 +436,15 @@ class Window():
                     elif val.name == "KEY_ESCAPE" or val.name == "KEY_BACKSPACE":
                         self.window_state = WindowState.VIEW
                         self.active_element.toggle_select()
+                        self.active_element = None
                     if direction:  # If a key is pressed which gives direction
+                        # If a direction is given the active element couldn't have been set to None
+                        assert(self.active_element is not None)
                         next_element = self.find_element(direction)
-                    if next_element:  # If a good next element is found
-                        self.active_element.toggle_select()
-                        self.active_element = next_element
-                        self.active_element.toggle_select()
+                        if next_element:  # If a good next element is found
+                            self.active_element.toggle_select()
+                            self.active_element = next_element
+                            self.active_element.toggle_select()
                 elif val:
                     pass
 
