@@ -108,6 +108,9 @@ class Window():
     def get_window(self) -> Window:
         return self
 
+    def draw(self) -> None:
+        self.mainframe.draw()
+
     def move_xy(self, p: Point) -> str:
         """
         Goes to x, y

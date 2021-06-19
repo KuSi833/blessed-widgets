@@ -11,7 +11,8 @@ title = Label(window.mainframe,
               Point((term.width // 2) + 8, term.height - 2),
               text="This is a test program")
 
-button1 = Button(window.mainframe, Point(82, 5), Point(90, 7), text="main", command=lambda: print("main"),
+button1 = Button(window.mainframe, Point(82, 5), Point(90, 7), text="main",
+                 command=lambda: window.mainframe.toggle_visible,
                  selected_style=LabelStyle(term.on_darkgreen, term.underline_yellow,
                                            border_color=term.white, border_style=BorderStyle.DOUBLE),
                  style=LabelStyle(term.on_darkgreen, term.white),
@@ -24,7 +25,7 @@ button2 = Button(window.mainframe, Point(75, 5), Point(77, 7), text="1", command
 
 
 window.clear()
-window.mainframe.draw()
+window.draw()
 window.loop()
 
 print(term.home)

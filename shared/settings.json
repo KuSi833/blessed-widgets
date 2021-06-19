@@ -5,8 +5,7 @@
 
     "python.linting.flake8Args": [
         "--max-line-length=120",
-        "--ignore=F401",
-        "--ignore=E402"
+        "--ignore=F401, E402, E305"
     ],
 
     "python.formatting.autopep8Args": [
