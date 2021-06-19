@@ -4,3 +4,11 @@ class PaddingOverflow(Exception):
 
 class RectangleTooSmall(Exception):
     pass
+
+
+class BorderOutOfBounds(Exception):
+    pass
+
+
+class InvalidElement(Exception):
+    pass
