@@ -24,6 +24,7 @@ class Element(ABC):
         self.parent = parent
         self.parent.add_element(self)
         self.window = parent.get_window()
+        self.visible = True
 
     def get_window(self) -> Window:
         return self.parent.get_window()
@@ -31,9 +32,32 @@ class Element(ABC):
     def get_border(self) -> Rectangle:
         return self.border
 
+    def show(self) -> None:
+        self.visible = True
+        self.draw()
+
+    def hide(self) -> None:
+        self.visible = False
+        self.clear()
+
+    def toggle_visible(self) -> None:
+        if self.visible:
+            self.visible = False
+            self.clear()
+        else:
+            self.visible = True
+            self.draw()
+
     @abstractclassmethod
     def draw(self) -> None:
         pass
+
+    def clear(self) -> None:
+        command = self.window.term.normal
+        for row in range(self.get_border().get_edge(Side.BOTTOM), self.get_border().get_edge(Side.TOP) + 1):
+            command += self.window.move_xy(Point(self.get_border().get_edge(Side.LEFT), row))
+            command += " " * self.get_border().get_width()
+        print(command)
 
 
 class Interactable(ABC):
@@ -86,12 +110,6 @@ class Frame(Element):
                     elements.append(element)
         return elements
 
-    def toggle_visible(self) -> None:
-        if self.visible:
-            self.visible = False
-        else:
-            self.visible = True
-
     def draw(self) -> None:
         if self.visible:
             for element in self.elements:
@@ -109,17 +127,13 @@ class Window():
         return self
 
     def draw(self) -> None:
+        self.clear()
         self.mainframe.draw()
 
-    def move_xy(self, p: Point) -> str:
-        """
-        Goes to x, y
-
-        IMPORTANT:
-        x = 0 is left side of the screen
-        y = 0 is bottom of the screen
-        """
-        return self.term.move_xy(p.x, self.term.height - p.y - 1)
+    def move_xy(self, p: Point, invert_y: bool = True) -> str:  # TODO issue 17
+        if invert_y:
+            p.y = self.term.height - p.y - 1
+        return self.term.move_xy(p.x, p.y)
 
     def clear(self) -> None:
         print(self.term.clear)
@@ -220,7 +234,7 @@ class Window():
                         self.active_element = self.get_extreme_element(Direction.DOWN)
                     elif val.name == "KEY_LEFT":
                         self.active_element = self.get_extreme_element(Direction.LEFT)
-                        
+
                     if self.active_element is not None:
                         self.active_element.toggle_select()
                         self.window_state = WindowState.SELECTION
@@ -410,8 +424,8 @@ class LabelStyle():
 
 class Label(Element):
     def __init__(self, parent: Parent, p1: Point, p2: Point,
-                 style: Optional[LabelStyle] = None,
                  text: Optional[str] = None,
+                 style: Optional[LabelStyle] = None,
                  h_align: Optional[HAlignment] = HAlignment.MIDDLE,
                  v_align: Optional[VAlignment] = VAlignment.MIDDLE,
                  padding: Optional[List[int]] = None,
