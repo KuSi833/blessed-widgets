@@ -1,6 +1,6 @@
 from __future__ import annotations
 from blessed import Terminal
-from exceptions import PaddingOverflow, RectangleTooSmall
+from exceptions import BorderOutOfBounds, InvalidElement, PaddingOverflow, RectangleTooSmall
 import numpy as np
 
 from typing import Callable, Union, List, Optional, NewType
@@ -9,6 +9,7 @@ from helpers import gaussian
 from constants import (
     BorderStyle, Direction, HAlignment, VAlignment, ButtonState,
     Side, WindowState, MAX_ANGLE)
+from functools import partial
 
 
 class Point():
@@ -18,12 +19,17 @@ class Point():
 
 
 class Element(ABC):
-    def __init__(self, window: Window, p1: Point, p2: Point) -> None:
-        super().__init__()
-        self.p1 = p1
-        self.p2 = p2
-        self.window = window
-        self.window.add_element(self)
+    def __init__(self, parent: Parent, p1: Point, p2: Point) -> None:
+        self.border = Rectangle(p1, p2)
+        self.parent = parent
+        self.parent.add_element(self)
+        self.window = parent.get_window()
+
+    def get_window(self) -> Window:
+        return self.parent.get_window()
+
+    def get_border(self) -> Rectangle:
+        return self.border
 
     @abstractclassmethod
     def draw(self) -> None:
@@ -39,9 +45,222 @@ class Interactable(ABC):
     def click(self) -> None:
         pass
 
-    @abstractclassmethod
-    def get_border(self) -> Rectangle:
-        pass
+
+class Frame(Element):
+    def __init__(self, parent: Parent, p1: Point, p2: Point) -> None:
+        super().__init__(parent, p1, p2)
+        self.elements: List[Element] = []
+        self.visible = True
+        parent.add_element(self)
+
+    def check_out_of_bounds(self, element: Element) -> bool:
+        if element.get_border().get_edge(Side.LEFT) < self.get_border().get_edge(Side.LEFT):
+            return True
+        elif element.get_border().get_edge(Side.BOTTOM) < self.get_border().get_edge(Side.BOTTOM):
+            return True
+        elif element.get_border().get_edge(Side.TOP) > self.get_border().get_edge(Side.TOP):
+            return True
+        elif element.get_border().get_edge(Side.RIGHT) > self.get_border().get_edge(Side.RIGHT):
+            return True
+        return False
+
+    def add_element(self, element: Element) -> None:
+        if self.check_out_of_bounds(element):
+            raise BorderOutOfBounds("Child coordinates are out of bounds of the parent")
+        self.elements.append(element)
+
+    def add_elements(self, *elements: Element) -> None:
+        for element in elements:
+            self.add_element(element)
+
+    def get_all_elements(self, element_filter: Optional[Callable] = None) -> List[Element]:
+        elements = []
+        for element in self.elements:
+            if isinstance(element, Frame):
+                elements.extend(element.get_all_elements())
+            else:
+                if element_filter:
+                    if element_filter(element):
+                        elements.append(element)
+                else:
+                    elements.append(element)
+        return elements
+
+    def toggle_visible(self) -> None:
+        if self.visible:
+            self.visible = False
+        else:
+            self.visible = True
+
+    def draw(self) -> None:
+        if self.visible:
+            for element in self.elements:
+                element.draw()
+
+
+class Window():
+    def __init__(self, term: Terminal) -> None:
+        self.term = term
+        self.window_state = WindowState.VIEW
+        self.active_element: Optional[Interactable] = None
+        Frame(self, Point(0, 0), Point(self.term.width, self.term.height))
+
+    def get_window(self) -> Window:
+        return self
+
+    def move_xy(self, p: Point) -> str:
+        """
+        Goes to x, y
+
+        IMPORTANT:
+        x = 0 is left side of the screen
+        y = 0 is bottom of the screen
+        """
+        return self.term.move_xy(p.x, self.term.height - p.y - 1)
+
+    def clear(self) -> None:
+        print(self.term.clear)
+
+    def flush(self) -> None:
+        "Resets pointer and color"
+        print(self.term.home + self.term.normal)
+
+    def get_all_elements(self, element_filter: Optional[Callable] = None) -> List[Element]:
+        return self.mainframe.get_all_elements(element_filter)
+
+    def get_all_interactive(self):
+        return self.get_all_elements(lambda element: isinstance(element, Interactable))
+
+    def get_extreme_element(self, direction: Direction) -> Optional[Interactable]:
+        extreme_element: Optional[Interactable] = None
+        if direction is Direction.UP:
+            highest_y = 0
+            for element in self.get_all_interactive():
+                if element.get_border().get_edge(Side.TOP) >= highest_y:
+                    highest_y = element.get_border().get_edge(Side.TOP)
+                    extreme_element = element
+        elif direction is Direction.RIGHT:
+            highest_x = 0
+            for element in self.get_all_interactive():
+                if element.get_border().get_edge(Side.RIGHT) >= highest_x:
+                    highest_x = element.get_border().get_edge(Side.RIGHT)
+                    extreme_element = element
+        elif direction is Direction.DOWN:
+            lowest_y = float('inf')
+            for element in self.get_all_interactive():
+                if element.get_border().get_edge(Side.BOTTOM) <= lowest_y:
+                    lowest_y = element.get_border().get_edge(Side.BOTTOM)
+                    extreme_element = element
+        elif direction is Direction.LEFT:
+            lowest_x = float('inf')
+            for element in self.get_all_interactive():
+                if element.get_border().get_edge(Side.LEFT) <= lowest_x:
+                    lowest_x = element.get_border().get_edge(Side.LEFT)
+                    extreme_element = element
+
+        return extreme_element
+
+    def find_element(self, direction: Direction) -> Optional[Interactable]:
+        if self.active_element is None:
+            raise TypeError("Unable to find element if actie_element isn't set")
+        else:
+            active_element_center = self.active_element.get_border().get_center()
+            min_wighted_distance = float('inf')
+            closest_element: Optional[Interactable] = None
+            for element in self.get_all_interactive():
+                if element != self.active_element:
+                    element_center = element.get_border().get_center()
+
+                    delta_x = element_center.x - active_element_center.x
+                    delta_y = element_center.y - active_element_center.y
+                    c = complex(delta_x, delta_y)
+
+                    argument = np.angle(c, deg=True)
+                    if argument < 0:
+                        argument += 360
+
+                    delta_angle = abs(direction.value - argument)
+
+                    if delta_angle > MAX_ANGLE:
+                        continue
+
+                    distance = np.linalg.norm(np.array((delta_x, delta_y)))
+
+                    # Calculating weighted distance
+                    weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
+
+                    if weighted_distance < min_wighted_distance:
+                        min_wighted_distance = weighted_distance
+                        closest_element = element
+
+            return closest_element
+
+    def add_element(self, element: Element) -> None:
+        "Allows for only one element to be added, which is a single Frame"
+        if not isinstance(element, Frame):
+            raise InvalidElement("Only a single element of type Frame can be added to a Window")
+        self.mainframe = element
+
+    def key_event(self, val) -> None:
+        if not val:
+            pass
+        else:
+            if self.window_state is WindowState.VIEW:
+                # Active element can't be set if WindowState.VIEW
+                assert(self.active_element is None)
+                if val.is_sequence:
+                    if val.name == "KEY_UP":
+                        self.active_element = self.get_extreme_element(Direction.UP)
+                    elif val.name == "KEY_RIGHT":
+                        self.active_element = self.get_extreme_element(Direction.RIGHT)
+                    elif val.name == "KEY_DOWN":
+                        self.active_element = self.get_extreme_element(Direction.DOWN)
+                    elif val.name == "KEY_LEFT":
+                        self.active_element = self.get_extreme_element(Direction.LEFT)
+                        
+                    if self.active_element is not None:
+                        self.active_element.toggle_select()
+                        self.window_state = WindowState.SELECTION
+            else:
+                # Active element must be set if WindowState.SELECTION
+                assert(self.active_element is not None)
+                direction = None
+                next_element = None
+                if val.is_sequence:
+                    if val.name == "KEY_UP":
+                        direction = Direction.UP
+                    elif val.name == "KEY_RIGHT":
+                        direction = Direction.RIGHT
+                    elif val.name == "KEY_DOWN":
+                        direction = Direction.DOWN
+                    elif val.name == "KEY_LEFT":
+                        direction = Direction.LEFT
+                    elif val.name == "KEY_ENTER":
+                        self.active_element.click()
+                    elif val.name == "KEY_ESCAPE" or val.name == "KEY_BACKSPACE":
+                        self.window_state = WindowState.VIEW
+                        self.active_element.toggle_select()
+                        self.active_element = None
+                    if direction:  # If a key is pressed which gives direction
+                        # If a direction is given the active element couldn't have been set to None
+                        assert(self.active_element is not None)
+                        next_element = self.find_element(direction)
+                        if next_element:  # If a good next element is found
+                            self.active_element.toggle_select()
+                            self.active_element = next_element
+                            self.active_element.toggle_select()
+                elif val:
+                    pass
+
+    def loop(self):
+        with self.term.cbreak():
+            val = ''
+            while val.lower() != 'q':
+                val = self.term.inkey(timeout=3)
+                self.key_event(val)
+
+
+Parent = Union[Frame, Window]
 
 
 class Rectangle():
@@ -187,16 +406,14 @@ class LabelStyle():
 
 
 class Label(Element):
-    def __init__(self, window: Window, p1: Point, p2: Point,
+    def __init__(self, parent: Parent, p1: Point, p2: Point,
                  style: Optional[LabelStyle] = None,
                  text: Optional[str] = None,
                  h_align: Optional[HAlignment] = HAlignment.MIDDLE,
                  v_align: Optional[VAlignment] = VAlignment.MIDDLE,
                  padding: Optional[List[int]] = None,
                  ) -> None:
-        super().__init__(window, p1, p2)
-        self.border = Rectangle(p1, p2)
-        self.window = window
+        super().__init__(parent, p1, p2)
         self.text = text
         self.h_align = h_align
         self.v_align = v_align
@@ -214,9 +431,6 @@ class Label(Element):
             if self.border.get_height() < padding[0] + padding[2]:
                 raise PaddingOverflow("Ammount of padding on y axis exceeds button height")
             self.padding = padding
-
-    def get_border(self) -> Rectangle:
-        return self.border
 
     def construct_default_style(self, style: Optional[LabelStyle] = None) -> LabelStyle:
         if style is None:
@@ -253,13 +467,13 @@ class Label(Element):
 
 class Button(Label, Interactable):
     def __init__(
-            self, window: Window, p1: Point, p2: Point, command: Callable,
+            self, parent: Parent, p1: Point, p2: Point, command: Callable,
             style: Optional[LabelStyle] = None, text: Optional[str] = None,
             h_align: Optional[HAlignment] = HAlignment.MIDDLE, v_align: Optional[VAlignment] = VAlignment.MIDDLE,
             padding: Optional[List[int]] = None,
             disabled_style: Optional[LabelStyle] = None, selected_style: Optional[LabelStyle] = None,
             clicked_style: Optional[LabelStyle] = None) -> None:
-        super().__init__(window, p1, p2, style=style, text=text, h_align=h_align, v_align=v_align, padding=padding)
+        super().__init__(parent, p1, p2, style=style, text=text, h_align=h_align, v_align=v_align, padding=padding)
         self.state = ButtonState.IDLE
         self.on_click(command)
 
@@ -310,161 +524,3 @@ class Button(Label, Interactable):
                 return self.selected_style
             else:
                 return self.style
-
-
-class Window():
-    def __init__(self, term: Terminal) -> None:
-        self.term = term
-        self.window_state = WindowState.VIEW
-        self.active_element: Optional[Interactable] = None
-        # Initialising element field
-        self.elements: List[Element] = []
-        self.interactable: List[Interactable] = []
-
-    def add_element(self, element: Element) -> None:
-        self.elements.append(element)
-        if isinstance(element, Interactable):
-            self.interactable.append(element)
-
-    def add_elements(self, *elements: Element) -> None:
-        for element in elements:
-            self.add_element(element)
-
-    def move_xy(self, p: Point) -> str:
-        """
-        Goes to x, y
-
-        IMPORTANT:
-        x = 0 is left side of the screen
-        y = 0 is bottom of the screen
-        """
-        return self.term.move_xy(p.x, self.term.height - p.y - 1)
-
-    def clear(self) -> None:
-        print(self.term.clear)
-
-    def flush(self) -> None:
-        "Resets pointer and color"
-        print(self.term.home + self.term.normal)
-
-    def get_extreme_element(self, direction: Direction) -> Optional[Interactable]:
-        extreme_element: Optional[Interactable] = None
-        if direction is Direction.UP:
-            highest_y = 0
-            for element in self.interactable:
-                if element.get_border().get_edge(Side.TOP) >= highest_y:
-                    highest_y = element.get_border().get_edge(Side.TOP)
-                    extreme_element = element
-        elif direction is Direction.RIGHT:
-            highest_x = 0
-            for element in self.interactable:
-                if element.get_border().get_edge(Side.RIGHT) >= highest_x:
-                    highest_x = element.get_border().get_edge(Side.RIGHT)
-                    extreme_element = element
-        elif direction is Direction.DOWN:
-            lowest_y = float('inf')
-            for element in self.interactable:
-                if element.get_border().get_edge(Side.BOTTOM) <= lowest_y:
-                    lowest_y = element.get_border().get_edge(Side.BOTTOM)
-                    extreme_element = element
-        elif direction is Direction.LEFT:
-            lowest_x = float('inf')
-            for element in self.interactable:
-                if element.get_border().get_edge(Side.LEFT) <= lowest_x:
-                    lowest_x = element.get_border().get_edge(Side.LEFT)
-                    extreme_element = element
-
-        return extreme_element
-
-    def find_element(self, direction: Direction) -> Optional[Interactable]:
-        if self.active_element is None:
-            raise TypeError("Unable to find element if actie_element isn't set")
-        else:
-            active_element_center = self.active_element.get_border().get_center()
-            min_wighted_distance = float('inf')
-            closest_element: Optional[Interactable] = None
-            for element in self.interactable:
-                if element != self.active_element:
-                    element_center = element.get_border().get_center()
-
-                    delta_x = element_center.x - active_element_center.x
-                    delta_y = element_center.y - active_element_center.y
-                    c = complex(delta_x, delta_y)
-
-                    argument = np.angle(c, deg=True)
-                    if argument < 0:
-                        argument += 360
-
-                    delta_angle = abs(direction.value - argument)
-
-                    if delta_angle > MAX_ANGLE:
-                        continue
-
-                    distance = np.linalg.norm(np.array((delta_x, delta_y)))
-
-                    # Calculating weighted distance
-                    weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
-
-                    if weighted_distance < min_wighted_distance:
-                        min_wighted_distance = weighted_distance
-                        closest_element = element
-
-            return closest_element
-
-    def key_event(self, val) -> None:
-        if not val:
-            pass
-        else:
-            if self.window_state is WindowState.VIEW:
-                # Active element can't be set if WindowState.VIEW
-                assert(self.active_element is None)
-                if val.is_sequence:
-                    if val.name == "KEY_UP":
-                        self.active_element = self.get_extreme_element(Direction.UP)
-                    elif val.name == "KEY_RIGHT":
-                        self.active_element = self.get_extreme_element(Direction.RIGHT)
-                    elif val.name == "KEY_DOWN":
-                        self.active_element = self.get_extreme_element(Direction.DOWN)
-                    elif val.name == "KEY_LEFT":
-                        self.active_element = self.get_extreme_element(Direction.LEFT)
-
-                    if self.active_element is not None:
-                        self.active_element.toggle_select()
-                        self.window_state = WindowState.SELECTION
-            else:
-                # Active element must be set if WindowState.SELECTION
-                assert(self.active_element is not None)
-                direction = None
-                next_element = None
-                if val.is_sequence:
-                    if val.name == "KEY_UP":
-                        direction = Direction.UP
-                    elif val.name == "KEY_RIGHT":
-                        direction = Direction.RIGHT
-                    elif val.name == "KEY_DOWN":
-                        direction = Direction.DOWN
-                    elif val.name == "KEY_LEFT":
-                        direction = Direction.LEFT
-                    elif val.name == "KEY_ENTER":
-                        self.active_element.click()
-                    elif val.name == "KEY_ESCAPE" or val.name == "KEY_BACKSPACE":
-                        self.window_state = WindowState.VIEW
-                        self.active_element.toggle_select()
-                        self.active_element = None
-                    if direction:  # If a key is pressed which gives direction
-                        # If a direction is given the active element couldn't have been set to None
-                        assert(self.active_element is not None)
-                        next_element = self.find_element(direction)
-                        if next_element:  # If a good next element is found
-                            self.active_element.toggle_select()
-                            self.active_element = next_element
-                            self.active_element.toggle_select()
-                elif val:
-                    pass
-
-    def loop(self):
-        with self.term.cbreak():
-            val = ''
-            while val.lower() != 'q':
-                val = self.term.inkey(timeout=3)
-                self.key_event(val)
