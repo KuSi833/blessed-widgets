@@ -24,7 +24,6 @@ class Element(ABC):
         self.parent = parent
         self.parent.add_element(self)
         self.window = parent.get_window()
-        self.visible = True
 
     def get_window(self) -> Window:
         return self.parent.get_window()
@@ -101,7 +100,7 @@ class Frame(Element):
         elements = []
         for element in self.elements:
             if isinstance(element, Frame):
-                elements.extend(element.get_all_elements())
+                elements.extend(element.get_all_elements(element_filter))
             else:
                 if element_filter:
                     if element_filter(element):
