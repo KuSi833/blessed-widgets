@@ -3,7 +3,7 @@ from blessed import Terminal
 from exceptions import PaddingOverflow, RectangleTooSmall
 import numpy as np
 
-from typing import Union, List, Optional, NewType
+from typing import Callable, Union, List, Optional, NewType
 from abc import ABC, abstractclassmethod
 from helpers import gaussian
 from constants import (
@@ -33,6 +33,10 @@ class Element(ABC):
 class Interactable(ABC):
     @abstractclassmethod
     def toggle_select(self) -> None:
+        pass
+
+    @abstractclassmethod
+    def click(self) -> None:
         pass
 
     @abstractclassmethod
@@ -249,18 +253,23 @@ class Label(Element):
 
 class Button(Label, Interactable):
     def __init__(
-            self, window: Window, p1: Point, p2: Point, style: Optional[LabelStyle] = None, text: Optional[str] = None,
+            self, window: Window, p1: Point, p2: Point, command: Callable,
+            style: Optional[LabelStyle] = None, text: Optional[str] = None,
             h_align: Optional[HAlignment] = HAlignment.MIDDLE, v_align: Optional[VAlignment] = VAlignment.MIDDLE,
             padding: Optional[List[int]] = None,
             disabled_style: Optional[LabelStyle] = None, selected_style: Optional[LabelStyle] = None,
             clicked_style: Optional[LabelStyle] = None) -> None:
         super().__init__(window, p1, p2, style=style, text=text, h_align=h_align, v_align=v_align, padding=padding)
         self.state = ButtonState.IDLE
+        self.on_click(command)
 
         # Styles
         self.set_style(disabled_style, ButtonState.DISABLED)
         self.set_style(selected_style, ButtonState.SELECTED)
         self.set_style(clicked_style, ButtonState.CLICKED)
+
+    def on_click(self, command: Callable) -> None:
+        self.command = command
 
     def toggle_select(self) -> None:
         if self.state is ButtonState.SELECTED:
@@ -268,6 +277,9 @@ class Button(Label, Interactable):
         else:
             self.state = ButtonState.SELECTED
         self.draw()
+
+    def click(self) -> None:
+        self.command()
 
     def set_style(self, style: Optional[LabelStyle], state: Optional[ButtonState] = ButtonState.IDLE) -> None:
         "If no style is specified default values will be used"
@@ -318,7 +330,7 @@ class Window():
         for element in elements:
             self.add_element(element)
 
-    def move_xy(self, p: Point, home: bool = True) -> str:
+    def move_xy(self, p: Point) -> str:
         """
         Goes to x, y
 
@@ -433,6 +445,8 @@ class Window():
                         direction = Direction.DOWN
                     elif val.name == "KEY_LEFT":
                         direction = Direction.LEFT
+                    elif val.name == "KEY_ENTER":
+                        self.active_element.click()
                     elif val.name == "KEY_ESCAPE" or val.name == "KEY_BACKSPACE":
                         self.window_state = WindowState.VIEW
                         self.active_element.toggle_select()
