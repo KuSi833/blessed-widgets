@@ -180,6 +180,7 @@ class Window():
         if self.active_element is None:
             raise TypeError("Unable to find element if actie_element isn't set")
         else:
+            assert(isinstance(self.active_element, Element))
             active_element_center = self.active_element.get_border().get_center()
             min_wighted_distance = float('inf')
             closest_element: Optional[Interactable] = None
@@ -411,7 +412,7 @@ class Rectangle():
         window.flush()
 
 
-class LabelStyle():
+class RectangleStyle():
     def __init__(self, bg_color: Optional[str] = None, text_style: Optional[str] = None,
                  border_color: Optional[str] = None, border_style: Optional[BorderStyle] = None) -> None:
         "Leave all parameters empty for default style (no background, no border, white text)"
@@ -424,7 +425,7 @@ class LabelStyle():
 class Label(Element):
     def __init__(self, parent: Parent, p1: Point, p2: Point,
                  text: Optional[str] = None,
-                 style: Optional[LabelStyle] = None,
+                 style: Optional[RectangleStyle] = None,
                  h_align: Optional[HAlignment] = HAlignment.MIDDLE,
                  v_align: Optional[VAlignment] = VAlignment.MIDDLE,
                  padding: Optional[List[int]] = None,
@@ -448,11 +449,11 @@ class Label(Element):
                 raise PaddingOverflow("Ammount of padding on y axis exceeds button height")
             self.padding = padding
 
-    def construct_default_style(self, style: Optional[LabelStyle] = None) -> LabelStyle:
+    def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         if style is None:
             # Default style
-            return LabelStyle(bg_color=self.window.term.normal, text_style=self.window.term.white,
-                              border_color=None, border_style=None)
+            return RectangleStyle(bg_color=self.window.term.normal, text_style=self.window.term.white,
+                                  border_color=None, border_style=None)
         else:  # If style is given fill empty fields with default values
             if style.bg_color:
                 bg_color = style.bg_color
@@ -462,14 +463,14 @@ class Label(Element):
                 text_style = style.text_style
             else:
                 text_style = self.window.term.white  # Default text_style
-            return LabelStyle(bg_color=bg_color, text_style=text_style,
-                              border_color=style.border_color, border_style=style.border_style)
+            return RectangleStyle(bg_color=bg_color, text_style=text_style,
+                                  border_color=style.border_color, border_style=style.border_style)
 
-    def set_style(self, style: Optional[LabelStyle]) -> None:
+    def set_style(self, style: Optional[RectangleStyle]) -> None:
         "If no style is given a default style is constructed"
         self.style = self.construct_default_style(style)
 
-    def get_style(self) -> LabelStyle:
+    def get_style(self) -> RectangleStyle:
         return self.style
 
     def draw(self):
@@ -481,14 +482,52 @@ class Label(Element):
         self.border.draw(self.window)
 
 
+class Entry(Label, Interactable):
+    def __init__(
+            self, parent: Parent, p1: Point, p2: Point, default_text: Optional[str] = None,
+            style: Optional[RectangleStyle] = None,
+            h_align: Optional[HAlignment] = HAlignment.LEFT,
+            v_align: Optional[VAlignment] = VAlignment.TOP,
+            padding: Optional[List[int]] = None) -> None:
+        super().__init__(parent, p1, p2, text=default_text, style=style,
+                         h_align=h_align, v_align=v_align, padding=padding)
+        self.text = ''
+
+    def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
+        "Entry default style"
+        if style is None:
+            # Default style
+            return RectangleStyle(bg_color=self.window.term.normal, text_style=self.window.term.white,
+                                  border_color=self.window.term.white, border_style=BorderStyle.SINGLE)
+        else:  # If style is given fill empty fields with default values
+            if style.bg_color:
+                bg_color = style.bg_color
+            else:
+                bg_color = self.window.term.normal  # Defualt bg_color
+            if style.text_style:
+                text_style = style.text_style
+            else:
+                text_style = self.window.term.white  # Default text_style
+            if style.border_color:
+                border_color = style.border_color
+            else:
+                border_color = self.window.term.white
+            if style.border_style:
+                border_style = style.border_style
+            else:
+                border_style = BorderStyle.SINGLE
+            return RectangleStyle(bg_color=bg_color, text_style=text_style,
+                                  border_color=border_color, border_style=border_style)
+
+
 class Button(Label, Interactable):
     def __init__(
             self, parent: Parent, p1: Point, p2: Point, command: Callable,
-            style: Optional[LabelStyle] = None, text: Optional[str] = None,
+            style: Optional[RectangleStyle] = None, text: Optional[str] = None,
             h_align: Optional[HAlignment] = HAlignment.MIDDLE, v_align: Optional[VAlignment] = VAlignment.MIDDLE,
             padding: Optional[List[int]] = None,
-            disabled_style: Optional[LabelStyle] = None, selected_style: Optional[LabelStyle] = None,
-            clicked_style: Optional[LabelStyle] = None) -> None:
+            disabled_style: Optional[RectangleStyle] = None, selected_style: Optional[RectangleStyle] = None,
+            clicked_style: Optional[RectangleStyle] = None) -> None:
         super().__init__(parent, p1, p2, style=style, text=text, h_align=h_align, v_align=v_align, padding=padding)
         self.state = ButtonState.IDLE
         self.on_click(command)
@@ -511,7 +550,7 @@ class Button(Label, Interactable):
     def click(self) -> None:
         self.command()
 
-    def set_style(self, style: Optional[LabelStyle], state: Optional[ButtonState] = ButtonState.IDLE) -> None:
+    def set_style(self, style: Optional[RectangleStyle], state: Optional[ButtonState] = ButtonState.IDLE) -> None:
         "If no style is specified default values will be used"
         if state is ButtonState.IDLE:
             self.style = super().construct_default_style(style)
@@ -522,7 +561,7 @@ class Button(Label, Interactable):
         elif state is ButtonState.SELECTED:
             self.selected_style = super().construct_default_style(style)
 
-    def get_style(self) -> LabelStyle:
+    def get_style(self) -> RectangleStyle:
         if self.state is ButtonState.IDLE:
             return self.style
         elif self.state is ButtonState.DISABLED:
