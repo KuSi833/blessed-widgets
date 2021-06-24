@@ -111,14 +111,14 @@ class Interactable(Visible):
         return self.clicked_style
 
     def getStyle(self) -> RectangleStyle:
-        if self.state is State.IDLE:
-            return self.style
-        elif self.state is State.DISABLED:
+        if self.state is State.DISABLED:
             return self.disabled_style
         elif self.state is State.SELECTED:
             return self.selected_style
         elif self.state is State.CLICKED:
             return self.clicked_style
+        else:
+            return self.style
 
     @abstractclassmethod
     def click(self) -> None:
@@ -139,20 +139,20 @@ class Interactable(Visible):
         self.draw()
 
 
-class Focusable(Visible):
+class Focusable(Interactable):
     def __init__(self, parent: Parent, p1: Point, p2: Point,  # Element
                  style: Optional[RectangleStyle] = None,  # Visible
                  selected_style: Optional[RectangleStyle] = None,
                  clicked_style: Optional[RectangleStyle] = None,
                  disabled_style: Optional[RectangleStyle] = None,
                  focused_style: Optional[RectangleStyle] = None) -> None:
-        super().__init(parent, p1, p2,  # Element
-                       style,  # Visible
-                       selected_style, clicked_style, disabled_style)  # Interactable
+        super().__init__(parent, p1, p2,  # Element
+                         style,  # Visible
+                         selected_style, clicked_style, disabled_style)  # Interactable
         self.setFocudesStyle(self.construct_default_style(focused_style))
 
     @abstractclassmethod
-    def handle_key_event(self, val) -> None:
+    def handleKeyEvent(self, val) -> None:
         pass
 
     def setFocudesStyle(self, focused_style: RectangleStyle) -> None:
@@ -162,14 +162,14 @@ class Focusable(Visible):
         return self.focused_style
 
     def getStyle(self) -> RectangleStyle:
-        if self.state is State.IDLE:
-            return self.style
-        elif self.state is State.DISABLED:
+        if self.state is State.DISABLED:
             return self.disabled_style
         elif self.state is State.FOCUSED:
             return self.clicked_style
         elif self.state is State.SELECTED:
             return self.selected_style
+        else:
+            return self.style
 
     def focus(self) -> None:
         self.state = State.FOCUSED
@@ -357,7 +357,7 @@ class Window():
                         self.window_state = WindowState.SELECTION
             elif self.window_state is WindowState.SELECTION:
                 # Active element must be set if WindowState.SELECTION
-                assert(isinstance(self.active_element,Interactable))
+                assert(isinstance(self.active_element, Interactable))
                 direction = None
                 next_element = None
                 if val.is_sequence:
@@ -386,8 +386,8 @@ class Window():
                 elif val:
                     pass
             elif self.window_state is WindowState.SELECTED:
-                assert(isinstance(self.active_element is Interactable))
-                self.active_element.handle_key_event()
+                assert(isinstance(self.active_element, Focusable))
+                self.active_element.handleKeyEvent(val)
 
     def loop(self):
         with self.term.cbreak():
@@ -606,7 +606,7 @@ class Button(Label, Interactable):
                        style=style, text=text,
                        h_align=h_align, v_align=v_align, padding=padding)
         Interactable.__init__(self, parent, p1, p2,
-                               style, selected_style, clicked_style, disabled_style)
+                              style, selected_style, clicked_style, disabled_style)
         self.on_click(command)
 
     def on_click(self, command: Callable) -> None:
@@ -629,13 +629,18 @@ class Entry(Label, Focusable):
                  focused_style: Optional[RectangleStyle] = None) -> None:
         Label.__init__(self, parent, p1, p2, text=default_text, style=style,
                        h_align=h_align, v_align=v_align, padding=padding)
-        Interactable.__init__(self, selected_style, clicked_style, disabled_style)
-        Focusable.__init__(self, focused_style)
+        Focusable.__init__(self, parent, p1, p2,
+                           style,
+                           selected_style, clicked_style, disabled_style,
+                           focused_style)
         self.text = ''
         self.state = State.IDLE
 
     def click(self) -> None:
         self.state = State.FOCUSED
+        
+    def handleKeyEvent(self, val) -> None:
+        return super().handleKeyEvent(val)  # TODO
 
     def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         "Entry default style"
