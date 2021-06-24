@@ -7,7 +7,7 @@ from typing import Callable, Union, List, Optional, NewType
 from abc import ABC, abstractclassmethod
 from helpers import gaussian
 from constants import (
-    BorderStyle, Direction, HAlignment, VAlignment, ButtonState,
+    BorderStyle, Direction, HAlignment, VAlignment, State,
     Side, WindowState, MAX_ANGLE)
 from functools import partial
 
@@ -59,14 +59,131 @@ class Element(ABC):
         print(command)
 
 
-class Interactable(ABC):
+class Visible(Element):  # Frame vs Label
+    def __init__(self, parent: Parent, p1: Point, p2: Point,  # Element
+                 style: Optional[RectangleStyle] = None) -> None:  # Visible
+        super().__init__(parent, p1, p2)
+        self.setStyle(self.construct_default_style(style))
+        self.state = State.IDLE
+
     @abstractclassmethod
-    def toggle_select(self) -> None:
+    def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         pass
+
+    @abstractclassmethod
+    def draw(self):
+        pass
+
+    def setStyle(self, style: RectangleStyle) -> None:
+        self.style = style
+
+    def getStyle(self) -> RectangleStyle:
+        return self.style
+
+
+class Interactable(Visible):
+    def __init__(self, parent: Parent, p1: Point, p2: Point,  # Element
+                 style: Optional[RectangleStyle] = None,  # Visible
+                 selected_style: Optional[RectangleStyle] = None,
+                 clicked_style: Optional[RectangleStyle] = None,
+                 disabled_style: Optional[RectangleStyle] = None) -> None:
+        super().__init__(parent, p1, p2, style)  # Visible
+        self.setSelectedStyle(self.construct_default_style(selected_style))
+        self.setClickedStyle(self.construct_default_style(clicked_style))
+        self.setDisabledStyle(self.construct_default_style(disabled_style))
+
+    def setSelectedStyle(self, selected_style: RectangleStyle) -> None:
+        self.selected_style = selected_style
+
+    def setDisabledStyle(self, disabled_style: RectangleStyle) -> None:
+        self.disabled_style = disabled_style
+
+    def setClickedStyle(self, clicked_style: RectangleStyle) -> None:
+        self.clicked_style = clicked_style
+
+    def getSelectedStyle(self) -> RectangleStyle:
+        return self.selected_style
+
+    def getDisabledStyle(self) -> RectangleStyle:
+        return self.disabled_style
+
+    def getClickedStyle(self) -> RectangleStyle:
+        return self.clicked_style
+
+    def getStyle(self) -> RectangleStyle:
+        if self.state is State.IDLE:
+            return self.style
+        elif self.state is State.DISABLED:
+            return self.disabled_style
+        elif self.state is State.SELECTED:
+            return self.selected_style
+        elif self.state is State.CLICKED:
+            return self.clicked_style
 
     @abstractclassmethod
     def click(self) -> None:
         pass
+
+    def toggle_selected(self) -> None:
+        if self.state is State.SELECTED:
+            self.unselect()
+        else:
+            self.select()
+
+    def select(self) -> None:
+        self.state = State.SELECTED
+        self.draw()
+
+    def unselect(self) -> None:
+        self.state = State.IDLE
+        self.draw()
+
+
+class Focusable(Visible):
+    def __init__(self, parent: Parent, p1: Point, p2: Point,  # Element
+                 style: Optional[RectangleStyle] = None,  # Visible
+                 selected_style: Optional[RectangleStyle] = None,
+                 clicked_style: Optional[RectangleStyle] = None,
+                 disabled_style: Optional[RectangleStyle] = None,
+                 focused_style: Optional[RectangleStyle] = None) -> None:
+        super().__init(parent, p1, p2,  # Element
+                       style,  # Visible
+                       selected_style, clicked_style, disabled_style)  # Interactable
+        self.setFocudesStyle(self.construct_default_style(focused_style))
+
+    @abstractclassmethod
+    def handle_key_event(self, val) -> None:
+        pass
+
+    def setFocudesStyle(self, focused_style: RectangleStyle) -> None:
+        self.focused_style = focused_style
+
+    def getFocusedStyle(self) -> RectangleStyle:
+        return self.focused_style
+
+    def getStyle(self) -> RectangleStyle:
+        if self.state is State.IDLE:
+            return self.style
+        elif self.state is State.DISABLED:
+            return self.disabled_style
+        elif self.state is State.FOCUSED:
+            return self.clicked_style
+        elif self.state is State.SELECTED:
+            return self.selected_style
+
+    def focus(self) -> None:
+        self.state = State.FOCUSED
+        self.draw()
+
+    def unfocus(self) -> None:
+        self.state = State.SELECTED
+        self.draw()
+
+    def toggle_focused(self) -> None:
+        if self.state is State.SELECTED:
+            self.unfocus()
+        else:
+            self.focus()
 
 
 class Frame(Element):
@@ -218,7 +335,7 @@ class Window():
             raise InvalidElement("Only a single element of type Frame can be added to a Window")
         self.mainframe = element
 
-    def key_event(self, val) -> None:
+    def handle_key_event(self, val) -> None:
         if not val:
             pass
         else:
@@ -236,11 +353,11 @@ class Window():
                         self.active_element = self.get_extreme_element(Direction.LEFT)
 
                     if self.active_element is not None:
-                        self.active_element.toggle_select()
+                        self.active_element.toggle_selected()
                         self.window_state = WindowState.SELECTION
-            else:
+            elif self.window_state is WindowState.SELECTION:
                 # Active element must be set if WindowState.SELECTION
-                assert(self.active_element is not None)
+                assert(isinstance(self.active_element,Interactable))
                 direction = None
                 next_element = None
                 if val.is_sequence:
@@ -256,25 +373,28 @@ class Window():
                         self.active_element.click()
                     elif val.name == "KEY_ESCAPE" or val.name == "KEY_BACKSPACE":
                         self.window_state = WindowState.VIEW
-                        self.active_element.toggle_select()
+                        self.active_element.toggle_selected()
                         self.active_element = None
                     if direction:  # If a key is pressed which gives direction
                         # If a direction is given the active element couldn't have been set to None
                         assert(self.active_element is not None)
                         next_element = self.find_element(direction)
                         if next_element:  # If a good next element is found
-                            self.active_element.toggle_select()
+                            self.active_element.toggle_selected()
                             self.active_element = next_element
-                            self.active_element.toggle_select()
+                            self.active_element.toggle_selected()
                 elif val:
                     pass
+            elif self.window_state is WindowState.SELECTED:
+                assert(isinstance(self.active_element is Interactable))
+                self.active_element.handle_key_event()
 
     def loop(self):
         with self.term.cbreak():
             val = ''
             while val.lower() != 'q':
                 val = self.term.inkey(timeout=3)
-                self.key_event(val)
+                self.handle_key_event(val)
 
 
 Parent = Union[Frame, Window]
@@ -422,7 +542,7 @@ class RectangleStyle():
         self.border_style = border_style
 
 
-class Label(Element):
+class Label(Visible):
     def __init__(self, parent: Parent, p1: Point, p2: Point,
                  text: Optional[str] = None,
                  style: Optional[RectangleStyle] = None,
@@ -430,13 +550,12 @@ class Label(Element):
                  v_align: Optional[VAlignment] = VAlignment.MIDDLE,
                  padding: Optional[List[int]] = None,
                  ) -> None:
-        super().__init__(parent, p1, p2)
+        Visible.__init__(self, parent, p1, p2,
+                         style)
         self.text = text
         self.h_align = h_align
         self.v_align = v_align
         self.set_padding(padding)
-        self.set_style(style)
-        self.state = ButtonState.IDLE
 
     def set_padding(self, padding: Optional[List[int]]):
         "If no padding is given a default [0, 0, 0, 0] is set"
@@ -466,15 +585,8 @@ class Label(Element):
             return RectangleStyle(bg_color=bg_color, text_style=text_style,
                                   border_color=style.border_color, border_style=style.border_style)
 
-    def set_style(self, style: Optional[RectangleStyle]) -> None:
-        "If no style is given a default style is constructed"
-        self.style = self.construct_default_style(style)
-
-    def get_style(self) -> RectangleStyle:
-        return self.style
-
     def draw(self):
-        active_style = self.get_style()
+        active_style = self.getStyle()
         self.border.add_bg_color(color=active_style.bg_color)
         self.border.add_border(border_style=active_style.border_style, color=active_style.border_color)
         self.border.insert_text(text=self.text, text_style=active_style.text_style, padding=self.padding,
@@ -482,16 +594,48 @@ class Label(Element):
         self.border.draw(self.window)
 
 
-class Entry(Label, Interactable):
+class Button(Label, Interactable):
     def __init__(
-            self, parent: Parent, p1: Point, p2: Point, default_text: Optional[str] = None,
-            style: Optional[RectangleStyle] = None,
-            h_align: Optional[HAlignment] = HAlignment.LEFT,
-            v_align: Optional[VAlignment] = VAlignment.TOP,
-            padding: Optional[List[int]] = None) -> None:
-        super().__init__(parent, p1, p2, text=default_text, style=style,
-                         h_align=h_align, v_align=v_align, padding=padding)
+            self, parent: Parent, p1: Point, p2: Point, command: Callable,
+            style: Optional[RectangleStyle] = None, text: Optional[str] = None,
+            h_align: Optional[HAlignment] = HAlignment.MIDDLE, v_align: Optional[VAlignment] = VAlignment.MIDDLE,
+            padding: Optional[List[int]] = None,
+            disabled_style: Optional[RectangleStyle] = None, selected_style: Optional[RectangleStyle] = None,
+            clicked_style: Optional[RectangleStyle] = None) -> None:
+        Label.__init__(self, parent, p1, p2,
+                       style=style, text=text,
+                       h_align=h_align, v_align=v_align, padding=padding)
+        Interactable.__init__(self, parent, p1, p2,
+                               style, selected_style, clicked_style, disabled_style)
+        self.on_click(command)
+
+    def on_click(self, command: Callable) -> None:
+        self.command = command
+
+    def click(self) -> None:
+        self.command()
+
+
+class Entry(Label, Focusable):
+    def __init__(self, parent: Parent, p1: Point, p2: Point,
+                 default_text: Optional[str] = None,
+                 style: Optional[RectangleStyle] = None,
+                 h_align: Optional[HAlignment] = HAlignment.LEFT,
+                 v_align: Optional[VAlignment] = VAlignment.TOP,
+                 padding: Optional[List[int]] = None,
+                 selected_style: Optional[RectangleStyle] = None,
+                 clicked_style: Optional[RectangleStyle] = None,
+                 disabled_style: Optional[RectangleStyle] = None,
+                 focused_style: Optional[RectangleStyle] = None) -> None:
+        Label.__init__(self, parent, p1, p2, text=default_text, style=style,
+                       h_align=h_align, v_align=v_align, padding=padding)
+        Interactable.__init__(self, selected_style, clicked_style, disabled_style)
+        Focusable.__init__(self, focused_style)
         self.text = ''
+        self.state = State.IDLE
+
+    def click(self) -> None:
+        self.state = State.FOCUSED
 
     def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         "Entry default style"
@@ -518,64 +662,3 @@ class Entry(Label, Interactable):
                 border_style = BorderStyle.SINGLE
             return RectangleStyle(bg_color=bg_color, text_style=text_style,
                                   border_color=border_color, border_style=border_style)
-
-
-class Button(Label, Interactable):
-    def __init__(
-            self, parent: Parent, p1: Point, p2: Point, command: Callable,
-            style: Optional[RectangleStyle] = None, text: Optional[str] = None,
-            h_align: Optional[HAlignment] = HAlignment.MIDDLE, v_align: Optional[VAlignment] = VAlignment.MIDDLE,
-            padding: Optional[List[int]] = None,
-            disabled_style: Optional[RectangleStyle] = None, selected_style: Optional[RectangleStyle] = None,
-            clicked_style: Optional[RectangleStyle] = None) -> None:
-        super().__init__(parent, p1, p2, style=style, text=text, h_align=h_align, v_align=v_align, padding=padding)
-        self.state = ButtonState.IDLE
-        self.on_click(command)
-
-        # Styles
-        self.set_style(disabled_style, ButtonState.DISABLED)
-        self.set_style(selected_style, ButtonState.SELECTED)
-        self.set_style(clicked_style, ButtonState.CLICKED)
-
-    def on_click(self, command: Callable) -> None:
-        self.command = command
-
-    def toggle_select(self) -> None:
-        if self.state is ButtonState.SELECTED:
-            self.state = ButtonState.IDLE
-        else:
-            self.state = ButtonState.SELECTED
-        self.draw()
-
-    def click(self) -> None:
-        self.command()
-
-    def set_style(self, style: Optional[RectangleStyle], state: Optional[ButtonState] = ButtonState.IDLE) -> None:
-        "If no style is specified default values will be used"
-        if state is ButtonState.IDLE:
-            self.style = super().construct_default_style(style)
-        elif state is ButtonState.DISABLED:
-            self.disabled_style = super().construct_default_style(style)
-        elif state is ButtonState.CLICKED:
-            self.clicked_style = super().construct_default_style(style)
-        elif state is ButtonState.SELECTED:
-            self.selected_style = super().construct_default_style(style)
-
-    def get_style(self) -> RectangleStyle:
-        if self.state is ButtonState.IDLE:
-            return self.style
-        elif self.state is ButtonState.DISABLED:
-            if self.disabled_style is not None:
-                return self.disabled_style
-            else:
-                return self.style
-        elif self.state is ButtonState.CLICKED:
-            if self.clicked_style is not None:
-                return self.clicked_style
-            else:
-                return self.style
-        elif self.state is ButtonState.SELECTED:
-            if self.selected_style is not None:
-                return self.selected_style
-            else:
-                return self.style
