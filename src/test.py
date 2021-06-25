@@ -5,7 +5,7 @@ term = Terminal()
 
 print(f"{term.home}{term.black_on_skyblue}{term.clear}")
 print("press 'q' to quit.")
-with term.cbreak():
+with term.cbreak(), term.hidden_cursor():
     val = ''
     while val.lower() != 'q':
         val = term.inkey(timeout=3)
