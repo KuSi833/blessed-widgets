@@ -61,9 +61,9 @@ button3 = Button(buttonFrame, Point(86, 2), Point(97, 4), text="Frame 3", comman
 # Init
 with term.hidden_cursor():
     window.clear()
-    frame1.show()
     frame2.hide()
     frame3.hide()
+    frame1.show()
     window.draw()
     window.loop()
 
