@@ -3,11 +3,11 @@ from blessed import Terminal
 from exceptions import BorderOutOfBounds, InvalidElement, PaddingOverflow, RectangleTooSmall
 import numpy as np
 
-from typing import Callable, Union, List, Optional, NewType
+from typing import Callable, Text, Union, List, Optional, NewType
 from abc import ABC, abstractclassmethod
 from helpers import gaussian
 from constants import (
-    BorderStyle, Direction, HAlignment, VAlignment, State,
+    BorderStyle, Direction, HAlignment, Response, VAlignment, State,
     Side, WindowState, MAX_ANGLE)
 from functools import partial
 
@@ -112,16 +112,16 @@ class Interactable(Visible):
 
     def getStyle(self) -> RectangleStyle:
         if self.state is State.DISABLED:
-            return self.disabled_style
+            return self.getDisabledStyle()
         elif self.state is State.SELECTED:
-            return self.selected_style
+            return self.getSelectedStyle()
         elif self.state is State.CLICKED:
-            return self.clicked_style
-        else:
-            return self.style
+            return self.getClickedStyle()
+        return super().getStyle()
 
     @abstractclassmethod
-    def click(self) -> None:
+    def click(self) -> Response:
+        "returns response"
         pass
 
     def toggle_selected(self) -> None:
@@ -152,7 +152,7 @@ class Focusable(Interactable):
         self.setFocudesStyle(self.construct_default_style(focused_style))
 
     @abstractclassmethod
-    def handleKeyEvent(self, val) -> None:
+    def handleKeyEvent(self, val) -> Response:
         pass
 
     def setFocudesStyle(self, focused_style: RectangleStyle) -> None:
@@ -162,14 +162,9 @@ class Focusable(Interactable):
         return self.focused_style
 
     def getStyle(self) -> RectangleStyle:
-        if self.state is State.DISABLED:
-            return self.disabled_style
-        elif self.state is State.FOCUSED:
-            return self.clicked_style
-        elif self.state is State.SELECTED:
-            return self.selected_style
-        else:
-            return self.style
+        if self.state is State.FOCUSED:
+            return self.getFocusedStyle()
+        return super().getStyle()
 
     def focus(self) -> None:
         self.state = State.FOCUSED
@@ -335,7 +330,7 @@ class Window():
             raise InvalidElement("Only a single element of type Frame can be added to a Window")
         self.mainframe = element
 
-    def handle_key_event(self, val) -> None:
+    def handleKeyEvent(self, val) -> Response:
         if not val:
             pass
         else:
@@ -355,6 +350,9 @@ class Window():
                     if self.active_element is not None:
                         self.active_element.toggle_selected()
                         self.window_state = WindowState.SELECTION
+                elif val:
+                    if val.lower() == 'q':
+                        return Response.QUIT
             elif self.window_state is WindowState.SELECTION:
                 # Active element must be set if WindowState.SELECTION
                 assert(isinstance(self.active_element, Interactable))
@@ -370,7 +368,9 @@ class Window():
                     elif val.name == "KEY_LEFT":
                         direction = Direction.LEFT
                     elif val.name == "KEY_ENTER":
-                        self.active_element.click()
+                        res = self.active_element.click()
+                        if res is Response.FOCUSED:
+                            self.window_state = WindowState.SELECTED
                     elif val.name == "KEY_ESCAPE" or val.name == "KEY_BACKSPACE":
                         self.window_state = WindowState.VIEW
                         self.active_element.toggle_selected()
@@ -384,17 +384,28 @@ class Window():
                             self.active_element = next_element
                             self.active_element.toggle_selected()
                 elif val:
-                    pass
+                    if val.lower() == 'q':
+                        return Response.QUIT
             elif self.window_state is WindowState.SELECTED:
                 assert(isinstance(self.active_element, Focusable))
-                self.active_element.handleKeyEvent(val)
+                res = self.active_element.handleKeyEvent(val)
+                if res is Response.UNFOCUSED:
+                    self.window_state = WindowState.SELECTION
+                elif res is Response.COMPLETE:
+                    "Place for additional window lvl key handling"
+                    pass
+                elif res is Response.CONTINUE:
+                    pass
+                elif res is Response.QUIT:
+                    return Response.QUIT
+        return Response.CONTINUE
 
     def loop(self):
         with self.term.cbreak():
-            val = ''
-            while val.lower() != 'q':
+            res = Response.CONTINUE
+            while res != Response.QUIT:
                 val = self.term.inkey(timeout=3)
-                self.handle_key_event(val)
+                res = self.handleKeyEvent(val)
 
 
 Parent = Union[Frame, Window]
@@ -458,12 +469,10 @@ class Rectangle():
         self.h_align = h_align
         self.v_align = v_align
 
-    def draw(self, window: Window):
+    def draw_background(self, window: Window) -> None:
         command = ''
         if self.bg_color:
             command += self.bg_color
-
-        # Color and border
         if self.border_style:
             if self.get_width() < 2 or self.get_height() < 2:
                 raise RectangleTooSmall("Unable to fit border on such small rectangle, must be at least 2x2")
@@ -489,15 +498,16 @@ class Rectangle():
                             command += "║" + " " * (self.get_width() - 2) + "║"
 
         else:
-            for row in range(self.get_edge(Side.BOTTOM), self.get_edge(Side.TOP) + 1):
-                command += window.move_xy(Point(self.get_edge(Side.LEFT), row))
-                command += " " * self.get_width()
+            if self.bg_color:
+                for row in range(self.get_edge(Side.BOTTOM), self.get_edge(Side.TOP) + 1):
+                    command += window.move_xy(Point(self.get_edge(Side.LEFT), row))
+                    command += " " * self.get_width()
+
         print(command)
         window.flush()
 
+    def write_text(self, window: Window) -> None:
         command = ''
-
-        # Text
         if self.text:
             # Text style
             if self.bg_color:
@@ -519,7 +529,7 @@ class Rectangle():
                 text_start_x = self.get_edge(Side.RIGHT) - self.padding[1] - max_text_len
             # Vertical
             if self.v_align is VAlignment.TOP:
-                text_start_y = self.get_edge(Side.TOP) + self.padding[0]
+                text_start_y = self.get_edge(Side.TOP) - self.padding[0]
             elif self.v_align is VAlignment.MIDDLE:
                 text_start_y = self.get_edge(Side.TOP) - self.padding[0] - (self.get_height() // 2)
             elif self.v_align is VAlignment.BOTTOM:
@@ -528,8 +538,11 @@ class Rectangle():
             command += window.move_xy(Point(text_start_x, text_start_y))
             command += text
             print(command)
+            window.flush()
 
-        window.flush()
+    def draw(self, window: Window) -> None:
+        self.draw_background(window)
+        self.write_text(window)
 
 
 class RectangleStyle():
@@ -612,8 +625,9 @@ class Button(Label, Interactable):
     def on_click(self, command: Callable) -> None:
         self.command = command
 
-    def click(self) -> None:
+    def click(self) -> Response:
         self.command()
+        return Response.CONTINUE  # returns no response because it's a button
 
 
 class Entry(Label, Focusable):
@@ -622,25 +636,90 @@ class Entry(Label, Focusable):
                  style: Optional[RectangleStyle] = None,
                  h_align: Optional[HAlignment] = HAlignment.LEFT,
                  v_align: Optional[VAlignment] = VAlignment.TOP,
-                 padding: Optional[List[int]] = None,
+                 padding: List[int] = [1] * 4,
                  selected_style: Optional[RectangleStyle] = None,
                  clicked_style: Optional[RectangleStyle] = None,
                  disabled_style: Optional[RectangleStyle] = None,
-                 focused_style: Optional[RectangleStyle] = None) -> None:
-        Label.__init__(self, parent, p1, p2, text=default_text, style=style,
+                 focused_style: Optional[RectangleStyle] = None,
+                 cursor_style: Optional[str] = None,
+                 cursor_bg_color: Optional[str] = None,
+                 highlight_color: Optional[str] = None) -> None:
+        # Asigning padding because it is expected the entry widget has a border
+        # Assigning text
+        if default_text:
+            self.text: str = default_text
+        else:
+            self.text = ''
+        Label.__init__(self, parent, p1, p2, text=self.text, style=style,
                        h_align=h_align, v_align=v_align, padding=padding)
         Focusable.__init__(self, parent, p1, p2,
                            style,
                            selected_style, clicked_style, disabled_style,
                            focused_style)
-        self.text = ''
+        self.saved_text = ''
         self.state = State.IDLE
+        self.cursor_pos = 0
+        # Cursor bg_color
+        if cursor_bg_color:
+            self.cursor_bg_color = cursor_bg_color
+        else:
+            self.cursor_bg_color = self.window.term.gray33
+        # Cursor style
+        if cursor_style:
+            self.cursor_style = cursor_style
+        else:
+            self.cursor_style = self.window.term.on_goldenrod1
+        # Highlight color
+        if highlight_color:
+            self.highlight_color = highlight_color
+        else:
+            highlight_color = self.window.term.on_gray38
 
-    def click(self) -> None:
-        self.state = State.FOCUSED
-        
-    def handleKeyEvent(self, val) -> None:
-        return super().handleKeyEvent(val)  # TODO
+    def click(self) -> Response:
+        self.text = self.saved_text
+        self.focus()
+        return Response.FOCUSED
+
+    def getSavedText(self) -> str:
+        return self.saved_text
+
+    def handleKeyEvent(self, val) -> Response:
+        "Returns True if key event was handled"
+        if val.is_sequence:
+            if val.name == "KEY_UP":
+                return Response.COMPLETE
+            elif val.name == "KEY_RIGHT":
+                self.cursor_pos = min(self.cursor_pos + 1, len(self.text))
+                self.draw()
+                return Response.COMPLETE
+            elif val.name == "KEY_DOWN":
+                return Response.COMPLETE
+            elif val.name == "KEY_LEFT":
+                self.cursor_pos = max(self.cursor_pos - 1, 0)
+                self.draw()
+                return Response.COMPLETE
+            elif val.name == "KEY_BACKSPACE":
+                if self.cursor_pos > 0:
+                    self.text = self.text[:self.cursor_pos - 1] + self.text[self.cursor_pos:]
+                    self.cursor_pos = max(self.cursor_pos - 1, 0)
+                    self.draw()
+                return Response.COMPLETE
+            elif val.name == "KEY_ENTER":
+                self.saved_text = self.text
+                self.unfocus()
+                return Response.UNFOCUSED
+            elif val.name == "KEY_ESCAPE":
+                self.text = self.saved_text
+                self.unfocus()
+                return Response.UNFOCUSED
+        elif val:
+            self.text += val
+            self.cursor_pos += 1
+            self.draw()
+            return Response.COMPLETE
+        else:
+            pass
+        return Response.CONTINUE
 
     def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         "Entry default style"
@@ -667,3 +746,46 @@ class Entry(Label, Focusable):
                 border_style = BorderStyle.SINGLE
             return RectangleStyle(bg_color=bg_color, text_style=text_style,
                                   border_color=border_color, border_style=border_style)
+
+    def draw_cursor(self, border: Rectangle, window: Window) -> None:
+        command = ''
+        # Cursor style
+        command += self.cursor_style
+        command += self.cursor_bg_color
+
+        # Cut of text if it wont fit
+        max_text_len = border.get_width() - (border.padding[1] + border.padding[3])
+        text = border.text[:max_text_len]
+
+        # Get cursor character
+        if self.cursor_pos >= len(text):
+            cursor_character = ' '
+        else:
+            cursor_character = text[self.cursor_pos]
+
+        # Text alignment
+        # Horizontal
+        if border.h_align is HAlignment.LEFT:
+            text_start_x = border.get_edge(Side.LEFT) + border.padding[3]
+        elif border.h_align is HAlignment.MIDDLE:
+            text_start_x = border.get_edge(
+                Side.LEFT) + border.padding[3] + (border.get_width() // 2) - (len(text) // 2)
+        elif border.h_align is HAlignment.RIGHT:
+            text_start_x = border.get_edge(Side.RIGHT) - border.padding[1] - max_text_len
+        # Vertical
+        if border.v_align is VAlignment.TOP:
+            text_start_y = border.get_edge(Side.TOP) - border.padding[0]
+        elif border.v_align is VAlignment.MIDDLE:
+            text_start_y = border.get_edge(Side.TOP) - border.padding[0] - (border.get_height() // 2)
+        elif border.v_align is VAlignment.BOTTOM:
+            text_start_y = border.get_edge(Side.BOTTOM) + border.padding[2]
+
+        command += window.move_xy(Point(text_start_x + self.cursor_pos, text_start_y))
+        command += cursor_character
+        print(command)
+        window.flush()
+
+    def draw(self):
+        Label.draw(self)
+        if self.state is State.FOCUSED:
+            self.draw_cursor(self.border, self.window)

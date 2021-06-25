@@ -19,11 +19,12 @@ class VAlignment(Enum):
 
 
 @unique
-class ButtonState(Enum):
+class State(Enum):
     IDLE = auto()
     DISABLED = auto()
     SELECTED = auto()
     CLICKED = auto()
+    FOCUSED = auto()
 
 
 @unique
@@ -38,6 +39,7 @@ class Side(Enum):
 class WindowState(Enum):
     VIEW = auto()
     SELECTION = auto()
+    SELECTED = auto()
 
 
 @unique
@@ -52,3 +54,12 @@ class Direction(Enum):
 class BorderStyle(Enum):
     SINGLE = auto()
     DOUBLE = auto()
+
+
+@unique
+class Response(Enum):
+    CONTINUE = auto()
+    COMPLETE = auto()
+    QUIT = auto()
+    FOCUSED = auto()
+    UNFOCUSED = auto()
