@@ -22,13 +22,13 @@ class Element(ABC):
     def __init__(self, parent: Parent, p1: Point, p2: Point) -> None:
         self.border = Rectangle(p1, p2)
         self.parent = parent
-        self.parent.add_element(self)
-        self.window = parent.get_window()
+        self.parent.addElement(self)
+        self.window = parent.getWindow()
 
-    def get_window(self) -> Window:
-        return self.parent.get_window()
+    def getWindow(self) -> Window:
+        return self.parent.getWindow()
 
-    def get_border(self) -> Rectangle:
+    def getBorder(self) -> Rectangle:
         return self.border
 
     def show(self) -> None:
@@ -39,7 +39,7 @@ class Element(ABC):
         self.visible = False
         self.clear()
 
-    def toggle_visible(self) -> None:
+    def toggleVisible(self) -> None:
         if self.visible:
             self.visible = False
             self.clear()
@@ -53,29 +53,74 @@ class Element(ABC):
 
     def clear(self) -> None:
         command = self.window.term.normal
-        for row in range(self.get_border().get_edge(Side.BOTTOM), self.get_border().get_edge(Side.TOP) + 1):
-            command += self.window.move_xy(Point(self.get_border().get_edge(Side.LEFT), row))
-            command += " " * self.get_border().get_width()
+        for row in range(self.getBorder().getEdge(Side.BOTTOM), self.getBorder().getEdge(Side.TOP) + 1):
+            command += self.window.moveXY(Point(self.getBorder().getEdge(Side.LEFT), row))
+            command += " " * self.getBorder().getWidth()
         print(command)
+
+
+class HasText(ABC):
+    def __init__(self, text: Optional[str], padding: List[int],
+                 h_align: HAlignment, v_align: VAlignment, border: Rectangle) -> None:
+        self.setText(text)
+        self.h_align = h_align
+        self.v_align = v_align
+        self.border = border
+        self.setPadding(padding)
+
+    def setText(self, text: Optional[str]) -> None:
+        self.text = text
+
+    def setPadding(self, padding: List[int]) -> None:
+        if self.border.getWidth() < padding[1] + padding[3]:
+            raise PaddingOverflow("Ammount of padding on x axis exceeds button width")
+        if self.border.getHeight() < padding[0] + padding[2]:
+            raise PaddingOverflow("Ammount of padding on y axis exceeds button height")
+        self.padding = padding
 
 
 class Visible(Element):  # Frame vs Label
     def __init__(self, parent: Parent, p1: Point, p2: Point,  # Element
-                 style: Optional[RectangleStyle] = None) -> None:  # Visible
+                 style: RectangleStyle = None) -> None:  # Visible
         super().__init__(parent, p1, p2)
-        self.setStyle(self.construct_default_style(style))
+        self.setStyle(style)
         self.state = State.IDLE
-
-    @abstractclassmethod
-    def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
-        pass
 
     @abstractclassmethod
     def draw(self):
         pass
 
-    def setStyle(self, style: RectangleStyle) -> None:
-        self.style = style
+    @abstractclassmethod
+    def constructDefaultStyle(self, style: Optional[RectangleStyle]) -> RectangleStyle:
+        pass
+
+    def constructDefaultStyleTemplate(self, default_style: RectangleStyle,
+                                      style: Optional[RectangleStyle] = None,
+                                      ) -> RectangleStyle:
+        if style is None:
+            return default_style
+        else:  # If style is given fill empty fields with default values
+            if style.bg_color:
+                bg_color: Optional[str] = style.bg_color
+            else:
+                bg_color = default_style.bg_color
+            if style.text_style:
+                text_style: Optional[str] = style.text_style
+            else:
+                text_style = default_style.text_style
+            if style.border_color:
+                border_color: Optional[str] = style.border_color
+            else:
+                border_color = default_style.border_color
+            if style.border_style:
+                border_style: Optional[BorderStyle] = style.border_style
+            else:
+                border_style = default_style.border_style
+            return RectangleStyle(bg_color=bg_color, text_style=text_style,
+                                  border_color=border_color, border_style=border_style)
+
+    def setStyle(self, style: Optional[RectangleStyle]) -> None:
+        self.style = self.constructDefaultStyle(style)
 
     def getStyle(self) -> RectangleStyle:
         return self.style
@@ -83,23 +128,23 @@ class Visible(Element):  # Frame vs Label
 
 class Interactable(Visible):
     def __init__(self, parent: Parent, p1: Point, p2: Point,  # Element
-                 style: Optional[RectangleStyle] = None,  # Visible
-                 selected_style: Optional[RectangleStyle] = None,
-                 clicked_style: Optional[RectangleStyle] = None,
-                 disabled_style: Optional[RectangleStyle] = None) -> None:
+                 style: RectangleStyle = None,  # Visible
+                 selected_style: RectangleStyle = None,
+                 clicked_style: RectangleStyle = None,
+                 disabled_style: RectangleStyle = None) -> None:
         super().__init__(parent, p1, p2, style)  # Visible
-        self.setSelectedStyle(self.construct_default_style(selected_style))
-        self.setClickedStyle(self.construct_default_style(clicked_style))
-        self.setDisabledStyle(self.construct_default_style(disabled_style))
+        self.setSelectedStyle(selected_style)
+        self.setClickedStyle(clicked_style)
+        self.setDisabledStyle(disabled_style)
 
-    def setSelectedStyle(self, selected_style: RectangleStyle) -> None:
-        self.selected_style = selected_style
+    def setSelectedStyle(self, selected_style: Optional[RectangleStyle]) -> None:
+        self.selected_style = self.constructDefaultStyle(selected_style)
 
-    def setDisabledStyle(self, disabled_style: RectangleStyle) -> None:
-        self.disabled_style = disabled_style
+    def setDisabledStyle(self, disabled_style: Optional[RectangleStyle]) -> None:
+        self.disabled_style = self.constructDefaultStyle(disabled_style)
 
-    def setClickedStyle(self, clicked_style: RectangleStyle) -> None:
-        self.clicked_style = clicked_style
+    def setClickedStyle(self, clicked_style: Optional[RectangleStyle]) -> None:
+        self.clicked_style = self.constructDefaultStyle(clicked_style)
 
     def getSelectedStyle(self) -> RectangleStyle:
         return self.selected_style
@@ -123,6 +168,9 @@ class Interactable(Visible):
     def click(self) -> Response:
         "returns response"
         pass
+
+    def onClick(self, command):
+        self.click = command
 
     def toggle_selected(self) -> None:
         if self.state is State.SELECTED:
@@ -149,14 +197,14 @@ class Focusable(Interactable):
         super().__init__(parent, p1, p2,  # Element
                          style,  # Visible
                          selected_style, clicked_style, disabled_style)  # Interactable
-        self.setFocudesStyle(self.construct_default_style(focused_style))
+        self.setFocudesStyle(focused_style)
 
     @abstractclassmethod
     def handleKeyEvent(self, val) -> Response:
         pass
 
-    def setFocudesStyle(self, focused_style: RectangleStyle) -> None:
-        self.focused_style = focused_style
+    def setFocudesStyle(self, focused_style: Optional[RectangleStyle]) -> None:
+        self.focused_style = self.constructDefaultStyle(focused_style)
 
     def getFocusedStyle(self) -> RectangleStyle:
         return self.focused_style
@@ -186,33 +234,32 @@ class Frame(Element):
         super().__init__(parent, p1, p2)
         self.elements: List[Element] = []
         self.visible = True
-        parent.add_element(self)
 
-    def check_out_of_bounds(self, element: Element) -> bool:
-        if element.get_border().get_edge(Side.LEFT) < self.get_border().get_edge(Side.LEFT):
+    def checkOutOfBounds(self, element: Element) -> bool:
+        if element.getBorder().getEdge(Side.LEFT) < self.getBorder().getEdge(Side.LEFT):
             return True
-        elif element.get_border().get_edge(Side.BOTTOM) < self.get_border().get_edge(Side.BOTTOM):
+        elif element.getBorder().getEdge(Side.BOTTOM) < self.getBorder().getEdge(Side.BOTTOM):
             return True
-        elif element.get_border().get_edge(Side.TOP) > self.get_border().get_edge(Side.TOP):
+        elif element.getBorder().getEdge(Side.TOP) > self.getBorder().getEdge(Side.TOP):
             return True
-        elif element.get_border().get_edge(Side.RIGHT) > self.get_border().get_edge(Side.RIGHT):
+        elif element.getBorder().getEdge(Side.RIGHT) > self.getBorder().getEdge(Side.RIGHT):
             return True
         return False
 
-    def add_element(self, element: Element) -> None:
-        if self.check_out_of_bounds(element):
+    def addElement(self, element: Element) -> None:
+        if self.checkOutOfBounds(element):
             raise BorderOutOfBounds("Child coordinates are out of bounds of the parent")
         self.elements.append(element)
 
-    def add_elements(self, *elements: Element) -> None:
+    def addElements(self, *elements: Element) -> None:
         for element in elements:
-            self.add_element(element)
+            self.addElement(element)
 
-    def get_all_elements(self, element_filter: Optional[Callable] = None) -> List[Element]:
+    def getAllElements(self, element_filter: Optional[Callable] = None) -> List[Element]:
         elements = []
         for element in self.elements:
             if isinstance(element, Frame):
-                elements.extend(element.get_all_elements(element_filter))
+                elements.extend(element.getAllElements(element_filter))
             else:
                 if element_filter:
                     if element_filter(element):
@@ -234,14 +281,14 @@ class Window():
         self.active_element: Optional[Interactable] = None
         Frame(self, Point(0, 0), Point(self.term.width, self.term.height))
 
-    def get_window(self) -> Window:
+    def getWindow(self) -> Window:
         return self
 
     def draw(self) -> None:
         self.clear()
         self.mainframe.draw()
 
-    def move_xy(self, p: Point, invert_y: bool = True) -> str:  # TODO issue 17
+    def moveXY(self, p: Point, invert_y: bool = True) -> str:  # TODO issue 17
         if invert_y:
             p.y = self.term.height - p.y - 1
         return self.term.move_xy(p.x, p.y)
@@ -253,52 +300,52 @@ class Window():
         "Resets pointer and color"
         print(self.term.home + self.term.normal)
 
-    def get_all_elements(self, element_filter: Optional[Callable] = None) -> List[Element]:
-        return self.mainframe.get_all_elements(element_filter)
+    def getAllElements(self, element_filter: Optional[Callable] = None) -> List[Element]:
+        return self.mainframe.getAllElements(element_filter)
 
-    def get_all_interactive(self):
-        return self.get_all_elements(lambda element: isinstance(element, Interactable))
+    def getAllInteractive(self):
+        return self.getAllElements(lambda element: isinstance(element, Interactable))
 
-    def get_extreme_element(self, direction: Direction) -> Optional[Interactable]:
+    def getExtremeElement(self, direction: Direction) -> Optional[Interactable]:
         extreme_element: Optional[Interactable] = None
         if direction is Direction.UP:
             highest_y = 0
-            for element in self.get_all_interactive():
-                if element.get_border().get_edge(Side.TOP) >= highest_y:
-                    highest_y = element.get_border().get_edge(Side.TOP)
+            for element in self.getAllInteractive():
+                if element.getBorder().getEdge(Side.TOP) >= highest_y:
+                    highest_y = element.getBorder().getEdge(Side.TOP)
                     extreme_element = element
         elif direction is Direction.RIGHT:
             highest_x = 0
-            for element in self.get_all_interactive():
-                if element.get_border().get_edge(Side.RIGHT) >= highest_x:
-                    highest_x = element.get_border().get_edge(Side.RIGHT)
+            for element in self.getAllInteractive():
+                if element.getBorder().getEdge(Side.RIGHT) >= highest_x:
+                    highest_x = element.getBorder().getEdge(Side.RIGHT)
                     extreme_element = element
         elif direction is Direction.DOWN:
             lowest_y = float('inf')
-            for element in self.get_all_interactive():
-                if element.get_border().get_edge(Side.BOTTOM) <= lowest_y:
-                    lowest_y = element.get_border().get_edge(Side.BOTTOM)
+            for element in self.getAllInteractive():
+                if element.getBorder().getEdge(Side.BOTTOM) <= lowest_y:
+                    lowest_y = element.getBorder().getEdge(Side.BOTTOM)
                     extreme_element = element
         elif direction is Direction.LEFT:
             lowest_x = float('inf')
-            for element in self.get_all_interactive():
-                if element.get_border().get_edge(Side.LEFT) <= lowest_x:
-                    lowest_x = element.get_border().get_edge(Side.LEFT)
+            for element in self.getAllInteractive():
+                if element.getBorder().getEdge(Side.LEFT) <= lowest_x:
+                    lowest_x = element.getBorder().getEdge(Side.LEFT)
                     extreme_element = element
 
         return extreme_element
 
-    def find_element(self, direction: Direction) -> Optional[Interactable]:
+    def findElement(self, direction: Direction) -> Optional[Interactable]:
         if self.active_element is None:
             raise TypeError("Unable to find element if actie_element isn't set")
         else:
             assert(isinstance(self.active_element, Element))
-            active_element_center = self.active_element.get_border().get_center()
+            active_element_center = self.active_element.getBorder().getCenter()
             min_wighted_distance = float('inf')
             closest_element: Optional[Interactable] = None
-            for element in self.get_all_interactive():
+            for element in self.getAllInteractive():
                 if element != self.active_element:
-                    element_center = element.get_border().get_center()
+                    element_center = element.getBorder().getCenter()
 
                     delta_x = element_center.x - active_element_center.x
                     delta_y = element_center.y - active_element_center.y
@@ -324,7 +371,7 @@ class Window():
 
             return closest_element
 
-    def add_element(self, element: Element) -> None:
+    def addElement(self, element: Element) -> None:
         "Allows for only one element to be added, which is a single Frame"
         if not isinstance(element, Frame):
             raise InvalidElement("Only a single element of type Frame can be added to a Window")
@@ -339,13 +386,13 @@ class Window():
                 assert(self.active_element is None)
                 if val.is_sequence:
                     if val.name == "KEY_UP":
-                        self.active_element = self.get_extreme_element(Direction.UP)
+                        self.active_element = self.getExtremeElement(Direction.UP)
                     elif val.name == "KEY_RIGHT":
-                        self.active_element = self.get_extreme_element(Direction.RIGHT)
+                        self.active_element = self.getExtremeElement(Direction.RIGHT)
                     elif val.name == "KEY_DOWN":
-                        self.active_element = self.get_extreme_element(Direction.DOWN)
+                        self.active_element = self.getExtremeElement(Direction.DOWN)
                     elif val.name == "KEY_LEFT":
-                        self.active_element = self.get_extreme_element(Direction.LEFT)
+                        self.active_element = self.getExtremeElement(Direction.LEFT)
 
                     if self.active_element is not None:
                         self.active_element.toggle_selected()
@@ -378,7 +425,7 @@ class Window():
                     if direction:  # If a key is pressed which gives direction
                         # If a direction is given the active element couldn't have been set to None
                         assert(self.active_element is not None)
-                        next_element = self.find_element(direction)
+                        next_element = self.findElement(direction)
                         if next_element:  # If a good next element is found
                             self.active_element.toggle_selected()
                             self.active_element = next_element
@@ -419,16 +466,8 @@ class Rectangle():
             "bl": Point(min(p1.x, p2.x), min(p1.y, p2.y)),
             "br": Point(max(p1.x, p2.x), min(p1.y, p2.y))
         }
-        self.bg_color = None
-        self.border_color: Optional[str] = None
-        self.border_style: Optional[BorderStyle] = None
-        self.text = None
-        self.text_style: Optional[str] = None
-        self.padding: Optional[List[int]] = None
-        self.h_align: Optional[HAlignment] = None
-        self.v_align: Optional[VAlignment] = None
 
-    def get_edge(self, side: Side) -> int:
+    def getEdge(self, side: Side) -> int:
         if side is Side.TOP:
             return self.corners["tl"].y
         elif side is Side.RIGHT:
@@ -438,191 +477,157 @@ class Rectangle():
         else:  # LEFT
             return self.corners["bl"].x
 
-    def get_width(self) -> int:
-        return self.get_edge(Side.RIGHT) - self.get_edge(Side.LEFT)
+    def getWidth(self) -> int:
+        return self.getEdge(Side.RIGHT) - self.getEdge(Side.LEFT)
 
-    def get_height(self) -> int:
-        return self.get_edge(Side.TOP) - self.get_edge(Side.BOTTOM)
+    def getHeight(self) -> int:
+        return self.getEdge(Side.TOP) - self.getEdge(Side.BOTTOM)
 
-    def get_middle_x(self) -> int:
-        return self.get_edge(Side.LEFT) + self.get_width() // 2
+    def getMiddleX(self) -> int:
+        return self.getEdge(Side.LEFT) + self.getWidth() // 2
 
-    def get_middle_y(self) -> int:
-        return self.get_edge(Side.BOTTOM) + self.get_height() // 2
+    def getMiddleY(self) -> int:
+        return self.getEdge(Side.BOTTOM) + self.getHeight() // 2
 
-    def get_center(self) -> Point:
-        return Point(self.get_middle_x(), self.get_middle_y())
+    def getCenter(self) -> Point:
+        return Point(self.getMiddleX(), self.getMiddleY())
 
-    def add_bg_color(self, color) -> None:
-        self.bg_color = color
-
-    def add_border(self, border_style: BorderStyle, color: Optional[str] = None) -> None:
-        self.border_style = border_style
-        self.border_color = color
-
-    def insert_text(self, text, text_style: Optional[str] = None, padding: Optional[List[int]] = [0] * 4,
-                    h_align: Optional[HAlignment] = HAlignment.MIDDLE,
-                    v_align: Optional[VAlignment] = VAlignment.MIDDLE) -> None:
-        self.text = text
-        self.text_style = text_style
-        self.padding = padding
-        self.h_align = h_align
-        self.v_align = v_align
-
-    def draw_background(self, window: Window) -> None:
+    def drawBackground(self, window: Window, style: RectangleStyle) -> None:
         command = ''
-        if self.bg_color:
-            command += self.bg_color
-        if self.border_style:
-            if self.get_width() < 2 or self.get_height() < 2:
+        if style.bg_color:
+            command += style.bg_color
+        if style.border_style:
+            if self.getWidth() < 2 or self.getHeight() < 2:
                 raise RectangleTooSmall("Unable to fit border on such small rectangle, must be at least 2x2")
             else:
-                if self.border_color:
-                    command += self.border_color
-                for row in range(self.get_edge(Side.BOTTOM), self.get_edge(Side.TOP) + 1):
-                    command += window.move_xy(Point(self.get_edge(Side.LEFT), row))
-                    if row == self.get_edge(Side.BOTTOM):
-                        if self.border_style is BorderStyle.SINGLE:
-                            command += "└" + "─" * (self.get_width() - 2) + "┘"
-                        elif self.border_style is BorderStyle.DOUBLE:
-                            command += "╚" + "═" * (self.get_width() - 2) + "╝"
-                    elif row == self.get_edge(Side.TOP):
-                        if self.border_style is BorderStyle.SINGLE:
-                            command += "┌" + "─" * (self.get_width() - 2) + "┐"
-                        elif self.border_style is BorderStyle.DOUBLE:
-                            command += "╔" + "═" * (self.get_width() - 2) + "╗"
+                if style.border_color:
+                    command += style.border_color
+                for row in range(self.getEdge(Side.BOTTOM), self.getEdge(Side.TOP) + 1):
+                    command += window.moveXY(Point(self.getEdge(Side.LEFT), row))
+                    if row == self.getEdge(Side.BOTTOM):
+                        if style.border_style is BorderStyle.SINGLE:
+                            command += "└" + "─" * (self.getWidth() - 2) + "┘"
+                        elif style.border_style is BorderStyle.DOUBLE:
+                            command += "╚" + "═" * (self.getWidth() - 2) + "╝"
+                    elif row == self.getEdge(Side.TOP):
+                        if style.border_style is BorderStyle.SINGLE:
+                            command += "┌" + "─" * (self.getWidth() - 2) + "┐"
+                        elif style.border_style is BorderStyle.DOUBLE:
+                            command += "╔" + "═" * (self.getWidth() - 2) + "╗"
                     else:
-                        if self.border_style is BorderStyle.SINGLE:
-                            command += "│" + " " * (self.get_width() - 2) + "│"
-                        elif self.border_style is BorderStyle.DOUBLE:
-                            command += "║" + " " * (self.get_width() - 2) + "║"
+                        if style.border_style is BorderStyle.SINGLE:
+                            command += "│" + " " * (self.getWidth() - 2) + "│"
+                        elif style.border_style is BorderStyle.DOUBLE:
+                            command += "║" + " " * (self.getWidth() - 2) + "║"
 
         else:
-            if self.bg_color:
-                for row in range(self.get_edge(Side.BOTTOM), self.get_edge(Side.TOP) + 1):
-                    command += window.move_xy(Point(self.get_edge(Side.LEFT), row))
-                    command += " " * self.get_width()
+            if style.bg_color:
+                for row in range(self.getEdge(Side.BOTTOM), self.getEdge(Side.TOP) + 1):
+                    command += window.moveXY(Point(self.getEdge(Side.LEFT), row))
+                    command += " " * self.getWidth()
 
         print(command)
         window.flush()
 
-    def write_text(self, window: Window) -> None:
+    def writeText(self, window: Window, style: RectangleStyle, text: str, padding: List[int],
+                  h_align: HAlignment, v_align: VAlignment) -> None:
         command = ''
-        if self.text:
+        if text:
             # Text style
-            if self.bg_color:
-                command += self.bg_color
-            if self.text_style:
-                command += self.text_style
+            if style.bg_color:
+                command += style.bg_color
+            if style.text_style:
+                command += style.text_style
 
             # Cut of text if it wont fit
-            max_text_len = self.get_width() - (self.padding[1] + self.padding[3])
-            text = self.text[:max_text_len]
+            max_text_len = self.getWidth() - (padding[1] + padding[3])
+            text = text[:max_text_len]
 
             # Text alignment
             # Horizontal
-            if self.h_align is HAlignment.LEFT:
-                text_start_x = self.get_edge(Side.LEFT) + self.padding[3]
-            elif self.h_align is HAlignment.MIDDLE:
-                text_start_x = self.get_edge(Side.LEFT) + self.padding[3] + (self.get_width() // 2) - (len(text) // 2)
-            elif self.h_align is HAlignment.RIGHT:
-                text_start_x = self.get_edge(Side.RIGHT) - self.padding[1] - max_text_len
+            if h_align is HAlignment.LEFT:
+                text_start_x = self.getEdge(Side.LEFT) + padding[3]
+            elif h_align is HAlignment.MIDDLE:
+                text_start_x = self.getEdge(Side.LEFT) + padding[3] + (self.getWidth() // 2) - (len(text) // 2)
+            elif h_align is HAlignment.RIGHT:
+                text_start_x = self.getEdge(Side.RIGHT) - padding[1] - max_text_len
             # Vertical
-            if self.v_align is VAlignment.TOP:
-                text_start_y = self.get_edge(Side.TOP) - self.padding[0]
-            elif self.v_align is VAlignment.MIDDLE:
-                text_start_y = self.get_edge(Side.TOP) - self.padding[0] - (self.get_height() // 2)
-            elif self.v_align is VAlignment.BOTTOM:
-                text_start_y = self.get_edge(Side.BOTTOM) + self.padding[2]
+            if v_align is VAlignment.TOP:
+                text_start_y = self.getEdge(Side.TOP) - padding[0]
+            elif v_align is VAlignment.MIDDLE:
+                text_start_y = self.getEdge(Side.TOP) - padding[0] - (self.getHeight() // 2)
+            elif v_align is VAlignment.BOTTOM:
+                text_start_y = self.getEdge(Side.BOTTOM) + padding[2]
 
-            command += window.move_xy(Point(text_start_x, text_start_y))
+            command += window.moveXY(Point(text_start_x, text_start_y))
             command += text
             print(command)
             window.flush()
 
-    def draw(self, window: Window) -> None:
-        self.draw_background(window)
-        self.write_text(window)
+    def draw(self, window: Window, style: RectangleStyle, text: str,
+             padding: List[int], h_align: HAlignment, v_align: VAlignment) -> None:
+        self.drawBackground(window, style)
+        self.writeText(window, style, text, padding, h_align, v_align)
 
 
 class RectangleStyle():
     def __init__(self, bg_color: Optional[str] = None, text_style: Optional[str] = None,
                  border_color: Optional[str] = None, border_style: Optional[BorderStyle] = None) -> None:
-        "Leave all parameters empty for default style (no background, no border, white text)"
+        "Leave all parameters empty for default style"
         self.bg_color = bg_color
         self.text_style = text_style
         self.border_color = border_color
         self.border_style = border_style
 
 
-class Label(Visible):
+class Label(Visible, HasText):
     def __init__(self, parent: Parent, p1: Point, p2: Point,
                  text: Optional[str] = None,
-                 style: Optional[RectangleStyle] = None,
-                 h_align: Optional[HAlignment] = HAlignment.MIDDLE,
-                 v_align: Optional[VAlignment] = VAlignment.MIDDLE,
-                 padding: Optional[List[int]] = None,
+                 style: RectangleStyle = None,
+                 padding: List[int] = [0] * 4,
+                 h_align: HAlignment = HAlignment.MIDDLE,
+                 v_align: VAlignment = VAlignment.MIDDLE,
                  ) -> None:
-        Visible.__init__(self, parent, p1, p2,
-                         style)
-        self.text = text
-        self.h_align = h_align
-        self.v_align = v_align
-        self.set_padding(padding)
+        Visible.__init__(self, parent, p1, p2,  # Element
+                         style)  # Visible
+        HasText.__init__(self, text, padding, h_align, v_align, self.border)
 
-    def set_padding(self, padding: Optional[List[int]]):
-        "If no padding is given a default [0, 0, 0, 0] is set"
-        if padding is None:
-            self.padding = [0] * 4
-        else:  # Padding overflow checking
-            if self.border.get_width() < padding[1] + padding[3]:
-                raise PaddingOverflow("Ammount of padding on x axis exceeds button width")
-            if self.border.get_height() < padding[0] + padding[2]:
-                raise PaddingOverflow("Ammount of padding on y axis exceeds button height")
-            self.padding = padding
-
-    def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
-        if style is None:
-            # Default style
-            return RectangleStyle(bg_color=self.window.term.normal, text_style=self.window.term.white,
-                                  border_color=None, border_style=None)
-        else:  # If style is given fill empty fields with default values
-            if style.bg_color:
-                bg_color = style.bg_color
-            else:
-                bg_color = self.window.term.normal  # Defualt bg_color
-            if style.text_style:
-                text_style = style.text_style
-            else:
-                text_style = self.window.term.white  # Default text_style
-            return RectangleStyle(bg_color=bg_color, text_style=text_style,
-                                  border_color=style.border_color, border_style=style.border_style)
+    def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
+        return Interactable.constructDefaultStyleTemplate(
+            self, default_style=RectangleStyle(
+                bg_color=self.window.term.normal, text_style=self.window.term.white),
+            style=style)
 
     def draw(self):
-        active_style = self.getStyle()
-        self.border.add_bg_color(color=active_style.bg_color)
-        self.border.add_border(border_style=active_style.border_style, color=active_style.border_color)
-        self.border.insert_text(text=self.text, text_style=active_style.text_style, padding=self.padding,
-                                h_align=self.h_align, v_align=self.v_align)
-        self.border.draw(self.window)
+        self.border.draw(self.window, self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
 
 
-class Button(Label, Interactable):
+class Button(Interactable, HasText):
     def __init__(
             self, parent: Parent, p1: Point, p2: Point, command: Callable,
-            style: Optional[RectangleStyle] = None, text: Optional[str] = None,
-            h_align: Optional[HAlignment] = HAlignment.MIDDLE, v_align: Optional[VAlignment] = VAlignment.MIDDLE,
-            padding: Optional[List[int]] = None,
-            disabled_style: Optional[RectangleStyle] = None, selected_style: Optional[RectangleStyle] = None,
-            clicked_style: Optional[RectangleStyle] = None) -> None:
-        Label.__init__(self, parent, p1, p2,
-                       style=style, text=text,
-                       h_align=h_align, v_align=v_align, padding=padding)
-        Interactable.__init__(self, parent, p1, p2,
-                              style, selected_style, clicked_style, disabled_style)
-        self.on_click(command)
+            style: RectangleStyle = None, text: Optional[str] = None,
+            h_align: HAlignment = HAlignment.MIDDLE,
+            v_align: VAlignment = VAlignment.MIDDLE,
+            padding: List[int] = [0] * 4,
+            disabled_style: RectangleStyle = None,
+            selected_style: RectangleStyle = None,
+            clicked_style: RectangleStyle = None) -> None:
+        Interactable.__init__(self, parent, p1, p2,  # Element
+                              style,  # Visible
+                              selected_style, clicked_style, disabled_style)  # Interactable
+        HasText.__init__(self, text, padding, h_align, v_align, self.border)
+        self.onClick(command)
 
-    def on_click(self, command: Callable) -> None:
+    def constructDefaultStyle(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
+        return Interactable.constructDefaultStyleTemplate(self, style=style,
+                                                          default_style=RectangleStyle(
+                                                              bg_color=self.window.term.on_white,
+                                                              text_style=self.window.term.black))
+
+    def draw(self):
+        self.border.draw(self.window, self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
+
+    def onClick(self, command: Callable) -> None:
         self.command = command
 
     def click(self) -> Response:
@@ -630,32 +635,32 @@ class Button(Label, Interactable):
         return Response.CONTINUE  # returns no response because it's a button
 
 
-class Entry(Label, Focusable):
+class Entry(Focusable, HasText):
     def __init__(self, parent: Parent, p1: Point, p2: Point,
                  default_text: Optional[str] = None,
-                 style: Optional[RectangleStyle] = None,
-                 h_align: Optional[HAlignment] = HAlignment.LEFT,
-                 v_align: Optional[VAlignment] = VAlignment.TOP,
+                 style: RectangleStyle = None,
                  padding: List[int] = [1] * 4,
-                 selected_style: Optional[RectangleStyle] = None,
-                 clicked_style: Optional[RectangleStyle] = None,
-                 disabled_style: Optional[RectangleStyle] = None,
-                 focused_style: Optional[RectangleStyle] = None,
-                 cursor_style: Optional[str] = None,
-                 cursor_bg_color: Optional[str] = None,
-                 highlight_color: Optional[str] = None) -> None:
+                 h_align: HAlignment = HAlignment.LEFT,
+                 v_align: VAlignment = VAlignment.TOP,
+                 selected_style: RectangleStyle = None,
+                 clicked_style: RectangleStyle = None,
+                 disabled_style: RectangleStyle = None,
+                 focused_style: RectangleStyle = None,
+                 cursor_style: str = None,
+                 cursor_bg_color: str = None,
+                 highlight_color: str = None) -> None:
         # Asigning padding because it is expected the entry widget has a border
         # Assigning text
         if default_text:
             self.text: str = default_text
         else:
             self.text = ''
-        Label.__init__(self, parent, p1, p2, text=self.text, style=style,
-                       h_align=h_align, v_align=v_align, padding=padding)
-        Focusable.__init__(self, parent, p1, p2,
-                           style,
-                           selected_style, clicked_style, disabled_style,
-                           focused_style)
+        Focusable.__init__(self, parent, p1, p2,  # Element
+                           style,  # Visible
+                           selected_style, clicked_style, disabled_style,  # Interactable
+                           focused_style)  # Focusable
+        HasText.__init__(self, default_text, padding, h_align, v_align, self.border)
+        self.setPadding(padding)
         self.saved_text = ''
         self.state = State.IDLE
         self.cursor_pos = 0
@@ -674,6 +679,14 @@ class Entry(Label, Focusable):
             self.highlight_color = highlight_color
         else:
             highlight_color = self.window.term.on_gray38
+
+    def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
+        return Interactable.constructDefaultStyleTemplate(self, style=style,
+                                                          default_style=RectangleStyle(
+                                                              bg_color=self.window.term.normal,
+                                                              text_style=self.window.term.white,
+                                                              border_color=self.window.term.white,
+                                                              border_style=BorderStyle.SINGLE))
 
     def click(self) -> Response:
         self.text = self.saved_text
@@ -721,32 +734,6 @@ class Entry(Label, Focusable):
             pass
         return Response.CONTINUE
 
-    def construct_default_style(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
-        "Entry default style"
-        if style is None:
-            # Default style
-            return RectangleStyle(bg_color=self.window.term.normal, text_style=self.window.term.white,
-                                  border_color=self.window.term.white, border_style=BorderStyle.SINGLE)
-        else:  # If style is given fill empty fields with default values
-            if style.bg_color:
-                bg_color = style.bg_color
-            else:
-                bg_color = self.window.term.normal  # Defualt bg_color
-            if style.text_style:
-                text_style = style.text_style
-            else:
-                text_style = self.window.term.white  # Default text_style
-            if style.border_color:
-                border_color = style.border_color
-            else:
-                border_color = self.window.term.white
-            if style.border_style:
-                border_style = style.border_style
-            else:
-                border_style = BorderStyle.SINGLE
-            return RectangleStyle(bg_color=bg_color, text_style=text_style,
-                                  border_color=border_color, border_style=border_style)
-
     def draw_cursor(self, border: Rectangle, window: Window) -> None:
         command = ''
         # Cursor style
@@ -754,8 +741,8 @@ class Entry(Label, Focusable):
         command += self.cursor_bg_color
 
         # Cut of text if it wont fit
-        max_text_len = border.get_width() - (border.padding[1] + border.padding[3])
-        text = border.text[:max_text_len]
+        max_text_len = border.getWidth() - (self.padding[1] + self.padding[3])
+        text = self.text[:max_text_len]
 
         # Get cursor character
         if self.cursor_pos >= len(text):
@@ -765,22 +752,22 @@ class Entry(Label, Focusable):
 
         # Text alignment
         # Horizontal
-        if border.h_align is HAlignment.LEFT:
-            text_start_x = border.get_edge(Side.LEFT) + border.padding[3]
-        elif border.h_align is HAlignment.MIDDLE:
-            text_start_x = border.get_edge(
-                Side.LEFT) + border.padding[3] + (border.get_width() // 2) - (len(text) // 2)
-        elif border.h_align is HAlignment.RIGHT:
-            text_start_x = border.get_edge(Side.RIGHT) - border.padding[1] - max_text_len
+        if self.h_align is HAlignment.LEFT:
+            text_start_x = border.getEdge(Side.LEFT) + self.padding[3]
+        elif self.h_align is HAlignment.MIDDLE:
+            text_start_x = border.getEdge(
+                Side.LEFT) + self.padding[3] + (border.getWidth() // 2) - (len(text) // 2)
+        elif self.h_align is HAlignment.RIGHT:
+            text_start_x = border.getEdge(Side.RIGHT) - self.padding[1] - max_text_len
         # Vertical
-        if border.v_align is VAlignment.TOP:
-            text_start_y = border.get_edge(Side.TOP) - border.padding[0]
-        elif border.v_align is VAlignment.MIDDLE:
-            text_start_y = border.get_edge(Side.TOP) - border.padding[0] - (border.get_height() // 2)
-        elif border.v_align is VAlignment.BOTTOM:
-            text_start_y = border.get_edge(Side.BOTTOM) + border.padding[2]
+        if self.v_align is VAlignment.TOP:
+            text_start_y = border.getEdge(Side.TOP) - self.padding[0]
+        elif self.v_align is VAlignment.MIDDLE:
+            text_start_y = border.getEdge(Side.TOP) - self.padding[0] - (border.getHeight() // 2)
+        elif self.v_align is VAlignment.BOTTOM:
+            text_start_y = border.getEdge(Side.BOTTOM) + self.padding[2]
 
-        command += window.move_xy(Point(text_start_x + self.cursor_pos, text_start_y))
+        command += window.moveXY(Point(text_start_x + self.cursor_pos, text_start_y))
         command += cursor_character
         print(command)
         window.flush()
