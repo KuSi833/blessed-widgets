@@ -1,5 +1,5 @@
 from __future__ import annotations
-from widgets import Frame, Label, Window, Button, Point, RectangleStyle, Entry
+from widgets import Frame, Label, OptionMenu, Window, Button, Point, RectangleStyle, Entry
 from blessed import Terminal
 from constants import BorderStyle, HAlignment, VAlignment
 from time import sleep, time
@@ -11,14 +11,15 @@ title = Label(window.mainframe, Point(67, 14), Point(93, 14),
 
 # Labels
 frame1 = Frame(window.mainframe, Point(63, 11), Point(100, 5))
-frame2 = Frame(window.mainframe, Point(63, 11), Point(98, 5))
+frame2 = Frame(window.mainframe, Point(60, 8), Point(100, 11))
 frame3 = Frame(window.mainframe, Point(63, 11), Point(98, 5))
 entry1 = Entry(frame1, Point(64, 9), Point(97, 7), default_text="default",
                style=RectangleStyle(),
                selected_style=RectangleStyle(border_color=term.yellow),
                focused_style=RectangleStyle(border_color=term.orange))
-label2 = Label(frame2, Point(75, 9), Point(86, 7), "Frame 2",
-               style=RectangleStyle(text_style=term.darkgreen, border_style=BorderStyle.DOUBLE))
+optionsMenu = OptionMenu(frame2, Point(75, 11), Point(86, 11), ["Beginner", "Intermediate"],
+                         style=RectangleStyle(text_style=term.white, bg_color=term.on_deepskyblue2),
+                         selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_goldenron1))
 label3 = Label(frame3, Point(75, 9), Point(86, 7), "Frame 3",
                style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE))
 
@@ -63,7 +64,7 @@ with term.hidden_cursor():
     window.clear()
     frame2.hide()
     frame3.hide()
-    frame1.show()
+    frame1.show()  # Unnecesary cause all elements are shown by default
     window.draw()
     window.loop()
 
