@@ -1,5 +1,5 @@
 from __future__ import annotations
-from widgets import Frame, Label, OptionMenu, Window, Button, Point, RectangleStyle, Entry
+from widgets import Frame, Label, DropdownMenu, Window, Button, Point, RectangleStyle, Entry
 from blessed import Terminal
 from constants import BorderStyle, HAlignment, VAlignment
 from time import sleep, time
@@ -17,9 +17,12 @@ entry1 = Entry(frame1, Point(64, 9), Point(97, 7), default_text="default",
                style=RectangleStyle(),
                selected_style=RectangleStyle(border_color=term.yellow),
                focused_style=RectangleStyle(border_color=term.orange))
-optionsMenu = OptionMenu(frame2, Point(75, 11), Point(86, 11), ["Beginner", "Intermediate"],
-                         style=RectangleStyle(text_style=term.white, bg_color=term.on_deepskyblue2),
-                         selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_goldenron1))
+optionsMenu = DropdownMenu(frame2, Point(74, 11), Point(87, 11), text="Menu",
+                           style=RectangleStyle(text_style=term.white, bg_color=term.on_deepskyblue2),
+                           selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_goldenron1))
+optionsMenu.addItem("Beginner", lambda: print("1"))
+optionsMenu.addItem("Intermediate", lambda: print("2"))
+optionsMenu.addItem("Expert", lambda: print(entry1.getSavedText()))
 label3 = Label(frame3, Point(75, 9), Point(86, 7), "Frame 3",
                style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE))
 

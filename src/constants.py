@@ -39,7 +39,7 @@ class Side(Enum):
 class WindowState(Enum):
     VIEW = auto()
     SELECTION = auto()
-    SELECTED = auto()
+    FOCUSED = auto()
 
 
 @unique
