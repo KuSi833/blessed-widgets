@@ -14,7 +14,3 @@ def getAssigned(option: Optional[X], default: X) -> X:
     if option:
         return option
     return default
-
-
-def returnA() -> str:
-    return 'a'

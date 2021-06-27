@@ -1,5 +1,5 @@
 from __future__ import annotations
-from widgets import Frame, Label, DropdownMenu, Window, Button, Point, RectangleStyle, Entry
+from widgets import Frame, Label, DropdownMenu, OptionMenu, Window, Button, Point, RectangleStyle, Entry
 from blessed import Terminal
 from constants import BorderStyle, HAlignment, VAlignment
 from time import sleep, time
@@ -17,12 +17,16 @@ entry1 = Entry(frame1, Point(64, 9), Point(97, 7), default_text="default",
                style=RectangleStyle(),
                selected_style=RectangleStyle(border_color=term.yellow),
                focused_style=RectangleStyle(border_color=term.orange))
-optionsMenu = DropdownMenu(frame2, Point(74, 11), Point(87, 11), text="Menu",
-                           style=RectangleStyle(text_style=term.white, bg_color=term.on_deepskyblue2),
-                           selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_goldenron1))
-optionsMenu.addItem("Beginner", lambda: print("1"))
-optionsMenu.addItem("Intermediate", lambda: print("2"))
-optionsMenu.addItem("Expert", lambda: print(entry1.getSavedText()))
+dropdownMenu = DropdownMenu(frame2, Point(64, 11), Point(77, 11), text="Menu",
+                            style=RectangleStyle(text_style=term.white, bg_color=term.on_deepskyblue2),
+                            selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_goldenron1))
+dropdownMenu.addItem("Print 1", lambda: print("1"))
+dropdownMenu.addItem("OptionsMenu", lambda: print(optionMenu.getValue()))
+dropdownMenu.addItem("Entry", lambda: print(entry1.getSavedText()))
+optionMenu = OptionMenu(frame2, Point(84, 11), Point(97, 11), default="Beginner",
+                        options=["Beginner", "Intermediate", "Expert"],
+                        style=RectangleStyle(text_style=term.white, bg_color=term.on_slateblue1),
+                        selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_goldenron1))
 label3 = Label(frame3, Point(75, 9), Point(86, 7), "Frame 3",
                style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE))
 
