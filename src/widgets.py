@@ -44,11 +44,11 @@ class Element(ABC):
     def isActive(self) -> bool:
         return self.active
 
-    def show(self) -> None:
+    def activate(self) -> None:
         self.active = True
         self.draw()
 
-    def hide(self) -> None:
+    def deactivate(self) -> None:
         self.active = False
         self.clear()
 
@@ -98,10 +98,6 @@ class Visible(Element):  # Frame vs Label
         super().__init__(parent, p1, p2)
         self.setStyle(style)
         self.state = State.IDLE
-
-    @abstractclassmethod
-    def draw(self):
-        pass
 
     @abstractclassmethod
     def constructDefaultStyle(self, style: Optional[RectangleStyle]) -> RectangleStyle:
@@ -227,12 +223,12 @@ class Focusable(Interactable):
             return self.getFocusedStyle()
         return super().getStyle()
 
-    def focus(self) -> None:
+    def focus(self) -> Response:
         self.state = State.FOCUSED
         self.draw()
         return Response.FOCUSED
 
-    def unfocus(self) -> None:
+    def unfocus(self) -> Response:
         self.state = State.SELECTED
         self.draw()
         return Response.UNFOCUSED
@@ -262,7 +258,7 @@ class Frame(Element):
 
     def addElement(self, element: Element) -> None:
         if self.checkOutOfBounds(element):
-            raise BorderOutOfBounds(f"Child coordinates are out of bounds of the parent")
+            raise BorderOutOfBounds("Child coordinates are out of bounds of the parent")
         self.elements.append(element)
 
     def addElements(self, *elements: Element) -> None:
@@ -813,12 +809,12 @@ class DropdownMenu(Focusable, HasText):
                                  clicked_style=self.clicked_style,
                                  disabled_style=self.disabled_style)
         self.itemButtons: List[Button] = [self.mainButton]
-        self.itemFrame.hide()
         self.active_index = 0
         self.active_item = self.mainButton
+        self.itemFrame.deactivate()
 
     def focus(self) -> Response:
-        self.itemFrame.show()
+        self.itemFrame.activate()
         return super().focus()
 
     def unfocus(self) -> Response:
@@ -826,7 +822,7 @@ class DropdownMenu(Focusable, HasText):
         self.active_index = 0
         self.active_item = self.itemButtons[self.active_index]
         self.active_item.toggleSelected()
-        self.itemFrame.hide()
+        self.itemFrame.deactivate()
         return super().unfocus()
 
     def click(self) -> Response:
@@ -928,7 +924,7 @@ class DropdownMenu(Focusable, HasText):
 class OptionMenu(DropdownMenu):
     def __init__(
             self, parent: Parent, p1: Point, p2: Point,
-            default=Optional[str],
+            default_text=Optional[str],
             options=List[str],
             style: Optional[RectangleStyle] = None,
             padding: List[int] = [0] * 4,
@@ -938,24 +934,26 @@ class OptionMenu(DropdownMenu):
             clicked_style: Optional[RectangleStyle] = None,
             disabled_style: Optional[RectangleStyle] = None,
             focused_style: Optional[RectangleStyle] = None) -> None:
-        super().__init__(parent=parent, p1=p1, p2=p2, text=default,
+        super().__init__(parent=parent, p1=p1, p2=p2,
+                         text=default_text,
                          style=style, padding=padding,
                          h_align=h_align, v_align=v_align,
                          selected_style=selected_style,
                          clicked_style=clicked_style,
-                         disabled_style=disabled_style)
+                         disabled_style=disabled_style,
+                         focused_style=focused_style)
         self.options = options
         for option in self.options:
-            self.addItem(text=option, style=style, padding=padding,
-                         h_align=h_align, v_align=v_align,
-                         selected_style=selected_style,
-                         clicked_style=clicked_style,
-                         disabled_style=disabled_style)
+            self.addOption(text=option, style=style, padding=padding,
+                           h_align=h_align, v_align=v_align,
+                           selected_style=selected_style,
+                           clicked_style=clicked_style,
+                           disabled_style=disabled_style)
 
     def getValue(self) -> Optional[str]:
         return self.mainButton.text
 
-    def switchOptions(self, optionIndex: int) -> None:
+    def switchOptions(self, optionIndex: int) -> Response:
         optionButton = self.itemButtons[optionIndex]
 
         self.mainButton.text = optionButton.text
@@ -965,37 +963,22 @@ class OptionMenu(DropdownMenu):
         self.mainButton.disabled_style = optionButton.disabled_style
         return self.unfocus()
 
-    def addItem(self, text: str,
-                style: Optional[RectangleStyle] = None,
-                padding: Optional[List[int]] = None,
-                h_align: Optional[HAlignment] = None,
-                v_align: Optional[VAlignment] = None,
-                selected_style: Optional[RectangleStyle] = None,
-                clicked_style: Optional[RectangleStyle] = None,
-                disabled_style: Optional[RectangleStyle] = None
-                ) -> None:
+    def addOption(self, text: str,
+                  style: Optional[RectangleStyle] = None,
+                  padding: Optional[List[int]] = None,
+                  h_align: Optional[HAlignment] = None,
+                  v_align: Optional[VAlignment] = None,
+                  selected_style: Optional[RectangleStyle] = None,
+                  clicked_style: Optional[RectangleStyle] = None,
+                  disabled_style: Optional[RectangleStyle] = None
+                  ) -> None:
         if self.mainButton.text is None:
             self.mainButton.text = text
         else:
-            p1, p2 = self.getItemButtonCords()
-            # Extend frame to fit option
-            self.itemFrame.getBorder().setP2(p2)
-            self.itemFrame.getBorder().updateCorners()
-            # Match mainButton params if none are given
-            padding = getAssigned(padding, self.mainButton.padding)
-            h_align = getAssigned(h_align, self.mainButton.h_align)
-            v_align = getAssigned(v_align, self.mainButton.v_align)
-            style = getAssigned(style, self.mainButton.style)
-            selected_style = getAssigned(selected_style, self.mainButton.selected_style)
-            clicked_style = getAssigned(clicked_style, self.mainButton.clicked_style)
-            disabled_style = getAssigned(disabled_style, self.mainButton.disabled_style)
-
             optionIndex = len(self.itemButtons)
-            optionButton = Button(self.itemFrame, p1, p2,
-                                  command=lambda: self.switchOptions(optionIndex),
-                                  text=text,
-                                  style=style,
-                                  selected_style=selected_style,
-                                  clicked_style=clicked_style,
-                                  disabled_style=disabled_style)
-            self.itemButtons.append(optionButton)
+            super().addItem(text=text, command=lambda: self.switchOptions(optionIndex),
+                            style=style, padding=padding,
+                            h_align=h_align, v_align=v_align,
+                            selected_style=selected_style,
+                            clicked_style=clicked_style,
+                            disabled_style=disabled_style)
