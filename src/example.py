@@ -26,21 +26,21 @@ label3 = Label(frame3, Point(75, 9), Point(86, 7), "Frame 3",
 
 
 def frame1toggle():
-    frame2.hide()
-    frame3.hide()
-    frame1.show()
+    frame2.deactivate()
+    frame3.deactivate()
+    frame1.activate()
 
 
 def frame2toggle():
-    frame1.hide()
-    frame3.hide()
-    frame2.show()
+    frame1.deactivate()
+    frame3.deactivate()
+    frame2.activate()
 
 
 def frame3toggle():
-    frame1.hide()
-    frame2.hide()
-    frame3.show()
+    frame1.deactivate()
+    frame2.deactivate()
+    frame3.activate()
 
 
 # Buttons
