@@ -1,11 +1,13 @@
 from __future__ import annotations
 from blessed import Terminal
-from exceptions import BorderOutOfBounds, ElementNotPlaced, InvalidElement, InvalidLayout, PaddingOverflow, RectangleTooSmall
+from exceptions import (
+    BorderOutOfBounds, ElementNotPlaced, InvalidElement,
+    InvalidLayout, PaddingOverflow, RectangleTooSmall)
 import numpy as np
 
 from typing import Callable, Text, Tuple, Union, List, Optional
 from abc import ABC, abstractclassmethod
-from helpers import gaussian, getAssigned
+from helpers import gaussian, getFirstAssigned
 from constants import (
     BorderStyle, Direction, HAlignment, Layout, Response, VAlignment, State,
     Side, WindowState, MAX_ANGLE)
@@ -111,27 +113,30 @@ class Visible(Element):  # Frame vs Label
     def constructDefaultStyleTemplate(self, default_style: RectangleStyle,
                                       style: Optional[RectangleStyle] = None,
                                       ) -> RectangleStyle:
+        """
+        Constructs default style in the following order of priority in descending order:
+        1. Given style
+        2. Inherited style
+        3. Default style
+        Only BorderStyle isn't inherited
+        """
         if style is None:
-            return default_style
-        else:  # If style is given fill empty fields with default values
-            if style.bg_color:
-                bg_color: Optional[str] = style.bg_color
-            else:
-                bg_color = default_style.bg_color
-            if style.text_style:
-                text_style: Optional[str] = style.text_style
-            else:
-                text_style = default_style.text_style
-            if style.border_color:
-                border_color: Optional[str] = style.border_color
-            else:
-                border_color = default_style.border_color
-            if style.border_style:
-                border_style: Optional[BorderStyle] = style.border_style
-            else:
-                border_style = default_style.border_style
-            return RectangleStyle(bg_color=bg_color, text_style=text_style,
-                                  border_color=border_color, border_style=border_style)
+            style = RectangleStyle()
+        if isinstance(self.parent, Window):  # TODO: Make MainFrame class?
+            parentStyle = RectangleStyle()
+        else:
+            parentStyle = self.parent.getStyle()
+
+        bg_color: Optional[str] = getFirstAssigned([style.bg_color, parentStyle.bg_color],
+                                                   default=default_style.bg_color)
+        text_style: Optional[str] = getFirstAssigned([style.text_style, parentStyle.text_style],
+                                                     default=default_style.text_style)
+        border_color: Optional[str] = getFirstAssigned([style.border_color, parentStyle.border_color],
+                                                       default=default_style.border_color)
+        border_style: Optional[BorderStyle] = getFirstAssigned([style.border_style],
+                                                               default=default_style.border_style)
+        return RectangleStyle(bg_color=bg_color, text_style=text_style,
+                              border_color=border_color, border_style=border_style)
 
     def setStyle(self, style: Optional[RectangleStyle]) -> None:
         self.style = self.constructDefaultStyle(style)
@@ -245,12 +250,17 @@ class Focusable(Interactable):
             return self.focus()
 
 
-class Frame(Element):
+class Frame(Visible):
     def __init__(self, parent: Parent, width: int, height: int,
-                 layout: Optional[Layout] = None) -> None:
-        super().__init__(parent, width, height)
+                 layout: Optional[Layout] = None,
+                 style: RectangleStyle = None) -> None:
+        super().__init__(parent, width, height, style)
         self.setLayout(layout)
         self.elements: List[Element] = []
+
+    def constructDefaultStyle(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
+        return Interactable.constructDefaultStyleTemplate(self, style=style,
+                                                          default_style=RectangleStyle())
 
     def setLayout(self, layout: Layout) -> None:
         self.layout = layout
@@ -283,7 +293,7 @@ class Frame(Element):
             raise InvalidLayout(f"Parent layout isn't ABSOLUTE, instead it is {self.parent.getLayout().value}")
         anchor = self.getFrameAnchor()
         border = Rectangle(anchor + Point(x, y),
-                           anchor + Point(x, y) + Point(element.width, element.height))
+                           anchor + Point(x, y) + Point(element.width, element.height-1))
         self.checkOutOfBounds(border)
         return border
 
@@ -313,6 +323,7 @@ class Frame(Element):
     def draw(self) -> None:
         self.checkIfPlaced()
         if self.isActive():
+            self.getBorder().drawBackground(self.getWindow(), self.getStyle())
             for element in self.elements:
                 element.draw()
 
@@ -542,7 +553,7 @@ class Rectangle():
         return self.getEdge(Side.RIGHT) - self.getEdge(Side.LEFT)
 
     def getHeight(self) -> int:
-        return self.getEdge(Side.TOP) - self.getEdge(Side.BOTTOM) + 1
+        return self.getEdge(Side.TOP) - self.getEdge(Side.BOTTOM)
 
     def getMiddleX(self) -> int:
         return self.getEdge(Side.LEFT) + self.getWidth() // 2
@@ -721,10 +732,10 @@ class Entry(Focusable, HasText):
         self.saved_text = ''
         self.state = State.IDLE
         self.cursor_pos = 0
-        self.text: str = getAssigned(self.text, '')
-        self.cursor_style: str = getAssigned(cursor_style, self.getWindow().term.on_goldenrod1)
-        self.cursor_bg_color: str = getAssigned(cursor_bg_color, self.getWindow().term.gray33)
-        self.highlight_color: str = getAssigned(highlight_color, self.getWindow().term.on_gray38)
+        self.text: str = getFirstAssigned(self.text, '')
+        self.cursor_style: str = getFirstAssigned(cursor_style, self.getWindow().term.on_goldenrod1)
+        self.cursor_bg_color: str = getFirstAssigned(cursor_bg_color, self.getWindow().term.gray33)
+        self.highlight_color: str = getFirstAssigned(highlight_color, self.getWindow().term.on_gray38)
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
         return Interactable.constructDefaultStyleTemplate(self, style=style,
@@ -940,13 +951,13 @@ class DropdownMenu(Focusable, HasText):
         self.itemFrame.getBorder().setP2(p2)
         self.itemFrame.getBorder().updateCorners()
         # Match mainButton params if none are given
-        padding = getAssigned(padding, self.mainButton.padding)
-        h_align = getAssigned(h_align, self.mainButton.h_align)
-        v_align = getAssigned(v_align, self.mainButton.v_align)
-        style = getAssigned(style, self.mainButton.style)
-        selected_style = getAssigned(selected_style, self.mainButton.selected_style)
-        clicked_style = getAssigned(clicked_style, self.mainButton.clicked_style)
-        disabled_style = getAssigned(disabled_style, self.mainButton.disabled_style)
+        padding = getFirstAssigned(padding, self.mainButton.padding)
+        h_align = getFirstAssigned(h_align, self.mainButton.h_align)
+        v_align = getFirstAssigned(v_align, self.mainButton.v_align)
+        style = getFirstAssigned(style, self.mainButton.style)
+        selected_style = getFirstAssigned(selected_style, self.mainButton.selected_style)
+        clicked_style = getFirstAssigned(clicked_style, self.mainButton.clicked_style)
+        disabled_style = getFirstAssigned(disabled_style, self.mainButton.disabled_style)
 
         optionButton = Button(self.itemFrame,
                               5, 4,  # TODO FIX THIS

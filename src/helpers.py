@@ -10,7 +10,8 @@ def gaussian(x, mean, std):
 X = TypeVar('X')
 
 
-def getAssigned(option: Optional[X], default: X) -> X:
-    if option:
-        return option
+def getFirstAssigned(options: List[Optional[X]], default: X) -> X:
+    for option in options:
+        if option:
+            return option
     return default

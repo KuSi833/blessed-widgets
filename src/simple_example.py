@@ -7,12 +7,14 @@ from time import sleep, time
 term = Terminal()
 with term.hidden_cursor():
     window = Window(term)
-    mainframe = Frame(window.mainframe, 30, 15)
+    mainframe = Frame(window.mainframe, 40, 14,
+                      style=RectangleStyle(bg_color=term.on_gray14, text_style=term.orange,
+                                           border_style=BorderStyle.SINGLE))
     mainframe.place(15, 2)
     # Elements
 
-    title = Label(mainframe, width=10, height=1, text="Example")
-    title.place(x=12, y=14)
+    title = Label(mainframe, width=11, height=1, text="Example")
+    title.place(x=14, y=12)
 
     # Placement
     # Init
