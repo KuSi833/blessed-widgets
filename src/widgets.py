@@ -3,13 +3,12 @@ from blessed import Terminal
 from exceptions import BorderOutOfBounds, InvalidElement, PaddingOverflow, RectangleTooSmall
 import numpy as np
 
-from typing import Callable, Text, Tuple, Union, List, Optional, NewType
+from typing import Callable, Text, Tuple, Union, List, Optional
 from abc import ABC, abstractclassmethod
 from helpers import gaussian, getAssigned
 from constants import (
     BorderStyle, Direction, HAlignment, Response, VAlignment, State,
     Side, WindowState, MAX_ANGLE)
-from functools import partial
 
 
 class Point():
@@ -32,8 +31,10 @@ class Element(ABC):
         self.border = Rectangle(p1, p2)
         self.parent = parent
         self.parent.addElement(self)
-        self.window = parent.getWindow()
         self.active = True
+
+    def place(self) -> None:
+        self.parent.place()
 
     def getWindow(self) -> Window:
         return self.parent.getWindow()
@@ -65,9 +66,9 @@ class Element(ABC):
         pass
 
     def clear(self) -> None:
-        command = self.window.term.normal
+        command = self.getWindow().term.normal
         for row in range(self.getBorder().getEdge(Side.BOTTOM), self.getBorder().getEdge(Side.TOP) + 1):
-            command += self.window.moveXY(Point(self.getBorder().getEdge(Side.LEFT), row))
+            command += self.getWindow().moveXY(Point(self.getBorder().getEdge(Side.LEFT), row))
             command += " " * self.getBorder().getWidth()
         print(command)
 
@@ -285,6 +286,39 @@ class Frame(Element):
                 element.draw()
 
 
+class RelativeFrame(Frame):
+    def __init__(self, parent: Parent, p1: Point, p2: Point) -> None:
+        super().__init__(parent, p1, p2)
+
+    def addElement(self, element: Element) -> None:
+        if self.checkOutOfBounds(element):
+            raise BorderOutOfBounds("Child coordinates are out of bounds of the parent")
+        self.elements.append(element)
+
+    def addElements(self, *elements: Element) -> None:
+        for element in elements:
+            self.addElement(element)
+
+    def getAllElements(self, element_filter: Optional[Callable] = None) -> List[Element]:
+        elements = []
+        for element in self.elements:
+            if element.isActive():  # TODO: Only searching active elements, might want to change
+                if isinstance(element, Frame):
+                    elements.extend(element.getAllElements(element_filter))
+                else:
+                    if element_filter:
+                        if element_filter(element):
+                            elements.append(element)
+                    else:
+                        elements.append(element)
+        return elements
+
+    def draw(self) -> None:
+        if self.isActive():
+            for element in self.elements:
+                element.draw()
+
+
 class Window():
     def __init__(self, term: Terminal) -> None:
         self.term = term
@@ -463,6 +497,8 @@ class Window():
             while res != Response.QUIT:
                 val = self.term.inkey(timeout=3)
                 res = self.handleKeyEvent(val)
+            # Exiting window
+            self.clear()
 
 
 Parent = Union[Frame, Window]
@@ -619,11 +655,11 @@ class Label(Visible, HasText):
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
         return Interactable.constructDefaultStyleTemplate(
             self, default_style=RectangleStyle(
-                bg_color=self.window.term.normal, text_style=self.window.term.white),
+                bg_color=self.getWindow().term.normal, text_style=self.getWindow().term.white),
             style=style)
 
     def draw(self):
-        self.border.draw(self.window, self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
+        self.border.draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
 
 
 class Button(Interactable, HasText):
@@ -645,11 +681,11 @@ class Button(Interactable, HasText):
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         return Interactable.constructDefaultStyleTemplate(self, style=style,
                                                           default_style=RectangleStyle(
-                                                              bg_color=self.window.term.on_white,
-                                                              text_style=self.window.term.black))
+                                                              bg_color=self.getWindow().term.on_white,
+                                                              text_style=self.getWindow().term.black))
 
     def draw(self):
-        self.border.draw(self.window, self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
+        self.border.draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
 
     def onClick(self, command: Callable) -> None:
         self.command = command
@@ -683,16 +719,16 @@ class Entry(Focusable, HasText):
         self.state = State.IDLE
         self.cursor_pos = 0
         self.text: str = getAssigned(self.text, '')
-        self.cursor_style: str = getAssigned(cursor_style, self.window.term.on_goldenrod1)
-        self.cursor_bg_color: str = getAssigned(cursor_bg_color, self.window.term.gray33)
-        self.highlight_color: str = getAssigned(highlight_color, self.window.term.on_gray38)
+        self.cursor_style: str = getAssigned(cursor_style, self.getWindow().term.on_goldenrod1)
+        self.cursor_bg_color: str = getAssigned(cursor_bg_color, self.getWindow().term.gray33)
+        self.highlight_color: str = getAssigned(highlight_color, self.getWindow().term.on_gray38)
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
         return Interactable.constructDefaultStyleTemplate(self, style=style,
                                                           default_style=RectangleStyle(
-                                                              bg_color=self.window.term.normal,
-                                                              text_style=self.window.term.white,
-                                                              border_color=self.window.term.white,
+                                                              bg_color=self.getWindow().term.normal,
+                                                              text_style=self.getWindow().term.white,
+                                                              border_color=self.getWindow().term.white,
                                                               border_style=BorderStyle.SINGLE))
 
     def click(self) -> Response:
@@ -782,7 +818,7 @@ class Entry(Focusable, HasText):
     def draw(self):
         Label.draw(self)
         if self.state is State.FOCUSED:
-            self.draw_cursor(self.border, self.window)
+            self.draw_cursor(self.border, self.getWindow())
 
 
 class DropdownMenu(Focusable, HasText):
@@ -875,7 +911,7 @@ class DropdownMenu(Focusable, HasText):
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
         return Interactable.constructDefaultStyleTemplate(
             self, default_style=RectangleStyle(
-                bg_color=self.window.term.on_white, text_style=self.window.term.black),
+                bg_color=self.getWindow().term.on_white, text_style=self.getWindow().term.black),
             style=style)
 
     def getItemHeight(self) -> int:
