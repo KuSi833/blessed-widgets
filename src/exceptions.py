@@ -12,3 +12,11 @@ class BorderOutOfBounds(Exception):
 
 class InvalidElement(Exception):
     pass
+
+
+class ElementNotPlaced(Exception):
+    pass
+
+
+class InvalidLayout(Exception):
+    pass

@@ -12,8 +12,8 @@ with term.hidden_cursor():
 
 # Labels
     frame1 = Frame(window.mainframe, Point(63, 11), Point(100, 5))
-    frame2 = Frame(window.mainframe, Point(60, 8), Point(100, 11))
     frame3 = Frame(window.mainframe, Point(63, 11), Point(98, 5))
+    frame2 = Frame(window.mainframe, Point(60, 8), Point(100, 11))
     entry1 = Entry(frame1, Point(64, 9), Point(97, 7), default_text="default",
                    style=RectangleStyle(),
                    selected_style=RectangleStyle(border_color=term.yellow),

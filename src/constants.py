@@ -63,3 +63,10 @@ class Response(Enum):
     QUIT = auto()
     FOCUSED = auto()
     UNFOCUSED = auto()
+
+
+@unique
+class Layout(Enum):
+    ABSOLUTE = auto()
+    FLEX = auto()
+    GRID = auto()
