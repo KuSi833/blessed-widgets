@@ -38,7 +38,8 @@ class Element(ABC):
         self.active = False
 
     def place(self, x: int, y: int) -> None:
-        "Works with AbsoluteFrame"
+        "Works with Layout.ABSOLUTE"
+        assert(isinstance(self.parent, Frame))
         self.border = self.parent.placeElement(self, x, y)
         self.activate()
 
@@ -46,7 +47,12 @@ class Element(ABC):
         return self.parent.getWindow()
 
     def getBorder(self) -> Rectangle:
-        return self.border
+        if self.border is None:
+            raise ElementNotPlaced("Element must be placed before drawing")
+        else:
+            # If it was None an error would've been raised
+            # assert(self.border is not None)
+            return self.border
 
     def isActive(self) -> bool:
         return self.active
@@ -56,6 +62,7 @@ class Element(ABC):
 
     def deactivate(self) -> None:
         self.active = False
+        self.clear()
 
     def toggle(self) -> None:
         if self.active:
@@ -63,8 +70,13 @@ class Element(ABC):
         else:
             self.activate()
 
-    def checkIfPlaced(self) -> None:
-        if self.border is None:
+    def isPlaced(self) -> bool:
+        if self.border:
+            return True
+        return False
+
+    def raiseIfNotPlaced(self) -> None:
+        if not self.isPlaced():
             raise ElementNotPlaced("Element must first be placed on parent frame")
 
     @abstractclassmethod
@@ -72,8 +84,16 @@ class Element(ABC):
         pass
 
     def clear(self) -> None:
-        self.checkIfPlaced()
-        command = self.getWindow().term.normal
+        self.raiseIfNotPlaced()
+        # Remove after MainFrame solution TODO
+        command = ''
+        if isinstance(self.parent, Frame):
+            bg_color = self.parent.getStyle().bg_color
+            if bg_color:
+                command += bg_color
+        else:
+            command += self.getWindow().term.normal
+        # Remove after MainFrame solution
         for row in range(self.getBorder().getEdge(Side.BOTTOM), self.getBorder().getEdge(Side.TOP) + 1):
             command += self.getWindow().moveXY(Point(self.getBorder().getEdge(Side.LEFT), row))
             command += " " * self.getBorder().getWidth()
@@ -262,10 +282,10 @@ class Frame(Visible):
         return Interactable.constructDefaultStyleTemplate(self, style=style,
                                                           default_style=RectangleStyle())
 
-    def setLayout(self, layout: Layout) -> None:
+    def setLayout(self, layout: Optional[Layout]) -> None:
         self.layout = layout
 
-    def getLayout(self) -> Layout:
+    def getLayout(self) -> Optional[Layout]:
         return self.layout
 
     def checkOutOfBounds(self, border: Rectangle) -> None:
@@ -283,17 +303,17 @@ class Frame(Visible):
                                     f"exceed parent border edge ({self.getBorder().getEdge(Side.RIGHT)})")
 
     def getFrameAnchor(self) -> Point:
-        self.checkIfPlaced()
+        self.raiseIfNotPlaced()
         return self.getBorder().corners["bl"]
 
     def placeElement(self, element: Element, x: int, y: int) -> Rectangle:
         if self.getLayout() is None:
             self.setLayout(Layout.ABSOLUTE)
-        elif self.getLayout() is not Layout.ABSOLUTE:
+        elif self.getLayout() is not Layout.ABSOLUTE:  # TODO Solved using Mainframe
             raise InvalidLayout(f"Parent layout isn't ABSOLUTE, instead it is {self.parent.getLayout().value}")
         anchor = self.getFrameAnchor()
         border = Rectangle(anchor + Point(x, y),
-                           anchor + Point(x, y) + Point(element.width, element.height-1))
+                           anchor + Point(x, y) + Point(element.width, element.height - 1))
         self.checkOutOfBounds(border)
         return border
 
@@ -321,11 +341,12 @@ class Frame(Visible):
         return elements
 
     def draw(self) -> None:
-        self.checkIfPlaced()
+        self.raiseIfNotPlaced()
         if self.isActive():
             self.getBorder().drawBackground(self.getWindow(), self.getStyle())
             for element in self.elements:
-                element.draw()
+                if element.isPlaced():
+                    element.draw()
 
 
 class Window():
@@ -349,7 +370,7 @@ class Window():
         return self.term.move_xy(p.x, p.y)
 
     def clear(self) -> None:
-        print(self.term.clear)
+        print(self.term.normal + self.term.clear)
 
     def flush(self) -> None:
         "Resets pointer and color"
@@ -392,7 +413,7 @@ class Window():
 
     def findElement(self, direction: Direction) -> Optional[Interactable]:
         if self.active_element is None:
-            raise TypeError("Unable to find element if actie_element isn't set")
+            raise TypeError("Unable to find element if active_element isn't set")
         else:
             assert(isinstance(self.active_element, Element))
             active_element_center = self.active_element.getBorder().getCenter()
@@ -509,8 +530,6 @@ class Window():
             while res != Response.QUIT:
                 val = self.term.inkey(timeout=3)
                 res = self.handleKeyEvent(val)
-            # Exiting window
-            self.clear()
 
 
 Parent = Union[Frame, Window]
@@ -601,7 +620,7 @@ class Rectangle():
         print(command)
         window.flush()
 
-    def writeText(self, window: Window, style: RectangleStyle, text: str, padding: List[int],
+    def writeText(self, window: Window, style: RectangleStyle, text: Optional[str], padding: List[int],
                   h_align: HAlignment, v_align: VAlignment) -> None:
         command = ''
         if text:
@@ -636,7 +655,7 @@ class Rectangle():
             print(command)
             window.flush()
 
-    def draw(self, window: Window, style: RectangleStyle, text: str,
+    def draw(self, window: Window, style: RectangleStyle, text: Optional[str],
              padding: List[int], h_align: HAlignment, v_align: VAlignment) -> None:
         self.drawBackground(window, style)
         self.writeText(window, style, text, padding, h_align, v_align)
@@ -671,8 +690,7 @@ class Label(Visible, HasText):
             style=style)
 
     def draw(self) -> None:
-        self.checkIfPlaced()
-        self.border.draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
+        self.getBorder().draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
 
 
 class Button(Interactable, HasText):
@@ -688,7 +706,7 @@ class Button(Interactable, HasText):
         Interactable.__init__(self, parent, width, height,  # Element
                               style,  # Visible
                               selected_style, clicked_style, disabled_style)  # Interactable
-        HasText.__init__(self, text, padding, h_align, v_align, self.border)
+        HasText.__init__(self, text, padding, h_align, v_align, width, height)
         self.onClick(command)
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
@@ -698,8 +716,7 @@ class Button(Interactable, HasText):
                                                               text_style=self.getWindow().term.black))
 
     def draw(self) -> None:
-        self.checkIfPlaced()
-        self.border.draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
+        self.getBorder().draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
 
     def onClick(self, command: Callable) -> None:
         self.command = command
@@ -728,14 +745,14 @@ class Entry(Focusable, HasText):
                            style,  # Visible
                            selected_style, clicked_style, disabled_style,  # Interactable
                            focused_style)  # Focusable
-        HasText.__init__(self, default_text, padding, h_align, v_align, self.border)
+        HasText.__init__(self, default_text, padding, h_align, v_align, width, height)
         self.saved_text = ''
         self.state = State.IDLE
         self.cursor_pos = 0
-        self.text: str = getFirstAssigned(self.text, '')
-        self.cursor_style: str = getFirstAssigned(cursor_style, self.getWindow().term.on_goldenrod1)
-        self.cursor_bg_color: str = getFirstAssigned(cursor_bg_color, self.getWindow().term.gray33)
-        self.highlight_color: str = getFirstAssigned(highlight_color, self.getWindow().term.on_gray38)
+        self.text: str = getFirstAssigned([self.text], '')
+        self.cursor_style: str = getFirstAssigned([cursor_style], self.getWindow().term.on_goldenrod1)
+        self.cursor_bg_color: str = getFirstAssigned([cursor_bg_color], self.getWindow().term.gray33)
+        self.highlight_color: str = getFirstAssigned([highlight_color], self.getWindow().term.on_gray38)
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
         return Interactable.constructDefaultStyleTemplate(self, style=style,
@@ -791,7 +808,7 @@ class Entry(Focusable, HasText):
             pass
         return Response.CONTINUE
 
-    def draw_cursor(self, border: Rectangle, window: Window) -> None:
+    def drawCursor(self, border: Rectangle, window: Window) -> None:
         command = ''
         # Cursor style
         command += self.cursor_style
@@ -830,10 +847,9 @@ class Entry(Focusable, HasText):
         window.flush()
 
     def draw(self) -> None:
-        self.checkIfPlaced()
-        Label.draw(self)
+        self.getBorder().draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
         if self.state is State.FOCUSED:
-            self.draw_cursor(self.border, self.getWindow())
+            self.drawCursor(self.getBorder(), self.getWindow())
 
 
 class DropdownMenu(Focusable, HasText):
@@ -852,9 +868,11 @@ class DropdownMenu(Focusable, HasText):
                            style,  # Visible
                            selected_style, clicked_style, disabled_style,  # Interactable
                            focused_style)  # Focusable
-        HasText.__init__(self, None, padding, h_align, v_align, self.border)
+        HasText.__init__(self, None, padding, h_align, v_align, width, height)
         self.itemFrame = Frame(parent, width, height)
-        self.mainButton = Button(self.itemFrame, width, height, command=self.toggleFocused,  # TODO: add ▼ to main button
+        # TODO: add ▼ to main button
+        self.mainButton = Button(self.itemFrame, width, height,
+                                 command=self.toggleFocused,
                                  style=self.style, text=text,
                                  selected_style=self.selected_style,
                                  clicked_style=self.clicked_style,
@@ -862,6 +880,15 @@ class DropdownMenu(Focusable, HasText):
         self.itemButtons: List[Button] = [self.mainButton]
         self.active_index = 0
         self.active_item = self.mainButton
+
+    def place(self, x: int, y: int) -> None:
+        self.itemFrame.height = self.getItemHeight() * len(self.itemButtons)
+        self.itemFrame.place(x, y - self.getItemHeight() * (len(self.itemButtons) - 1))
+        self.mainButton.place(0, len(self.itemButtons) - 1)
+        self.border = self.mainButton.getBorder()
+        for i, itemButton in enumerate(self.itemButtons):
+            itemButton.place(0, (len(self.itemButtons) - 1) - i * self.getItemHeight())
+        self.activate()
         self.itemFrame.deactivate()
 
     def focus(self) -> Response:
@@ -930,12 +957,7 @@ class DropdownMenu(Focusable, HasText):
             style=style)
 
     def getItemHeight(self) -> int:
-        return self.mainButton.getBorder().getHeight()
-
-    def getItemButtonCords(self) -> Tuple[Point, Point]:
-        height = self.mainButton.getBorder().getHeight()
-        return (self.itemButtons[-1].getBorder().corners["tl"] - Point(0, height),
-                self.itemButtons[-1].getBorder().corners["br"] - Point(0, height))
+        return self.height
 
     def addItem(self, text: str, command: Callable,
                 style: Optional[RectangleStyle] = None,
@@ -946,30 +968,27 @@ class DropdownMenu(Focusable, HasText):
                 clicked_style: Optional[RectangleStyle] = None,
                 disabled_style: Optional[RectangleStyle] = None
                 ) -> None:
-        p1, p2 = self.getItemButtonCords()
         # Extend frame to fit option
-        self.itemFrame.getBorder().setP2(p2)
-        self.itemFrame.getBorder().updateCorners()
         # Match mainButton params if none are given
-        padding = getFirstAssigned(padding, self.mainButton.padding)
-        h_align = getFirstAssigned(h_align, self.mainButton.h_align)
-        v_align = getFirstAssigned(v_align, self.mainButton.v_align)
-        style = getFirstAssigned(style, self.mainButton.style)
-        selected_style = getFirstAssigned(selected_style, self.mainButton.selected_style)
-        clicked_style = getFirstAssigned(clicked_style, self.mainButton.clicked_style)
-        disabled_style = getFirstAssigned(disabled_style, self.mainButton.disabled_style)
+        padding = getFirstAssigned([padding], self.mainButton.padding)
+        h_align = getFirstAssigned([h_align], self.mainButton.h_align)
+        v_align = getFirstAssigned([v_align], self.mainButton.v_align)
+        style = getFirstAssigned([style], self.mainButton.style)
+        selected_style = getFirstAssigned([selected_style], self.mainButton.selected_style)
+        clicked_style = getFirstAssigned([clicked_style], self.mainButton.clicked_style)
+        disabled_style = getFirstAssigned([disabled_style], self.mainButton.disabled_style)
 
-        optionButton = Button(self.itemFrame,
-                              5, 4,  # TODO FIX THIS
-                              command, text,
-                              style,
-                              selected_style,
-                              clicked_style,
-                              disabled_style)
+        optionButton = Button(parent=self.itemFrame,
+                              width=self.width, height=self.height,
+                              command=command, text=text,
+                              style=style,
+                              selected_style=selected_style,
+                              clicked_style=clicked_style,
+                              disabled_style=disabled_style)
         self.itemButtons.append(optionButton)
 
     def draw(self) -> None:
-        self.checkIfPlaced()
+        self.raiseIfNotPlaced()
         self.mainButton.draw()
         self.itemFrame.draw()
 

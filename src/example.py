@@ -7,68 +7,88 @@ from time import sleep, time
 term = Terminal()
 with term.hidden_cursor():
     window = Window(term)
-    title = Label(window.mainframe, Point(67, 14), Point(93, 14),
-                  text="Button and frame example")
+    mainframe = Frame(window.mainframe, 40, 14,
+                      style=RectangleStyle(bg_color=term.on_gray14, text_style=term.orange,
+                                           border_style=BorderStyle.SINGLE))
+    mainframe.place(15, 2)
 
-# Labels
-    frame1 = Frame(window.mainframe, Point(63, 11), Point(100, 5))
-    frame3 = Frame(window.mainframe, Point(63, 11), Point(98, 5))
-    frame2 = Frame(window.mainframe, Point(60, 8), Point(100, 11))
-    entry1 = Entry(frame1, Point(64, 9), Point(97, 7), default_text="default",
-                   style=RectangleStyle(),
-                   selected_style=RectangleStyle(border_color=term.yellow),
-                   focused_style=RectangleStyle(border_color=term.orange))
-    dropdownMenu = DropdownMenu(frame2, Point(64, 11), Point(77, 11), text="Menu",
+    title = Label(mainframe, width=11, height=1, text="Example")
+    title.place(x=15, y=13)
+    frame1 = Frame(mainframe, 36, 6, style=RectangleStyle(bg_color=term.on_gray32))
+    frame1.place(2, 6)
+    frame2 = Frame(mainframe, 36, 6)
+    frame2.place(2, 6)
+    frame3 = Frame(mainframe, 36, 6)
+    frame3.place(2, 6)
+
+    # Frame 1
+    entry = Entry(frame1, width=34, height=3, default_text="default",
+                  style=RectangleStyle(bg_color=term.on_gray14),
+                  selected_style=RectangleStyle(bg_color=term.on_gray14, border_color=term.yellow),
+                  focused_style=RectangleStyle(bg_color=term.on_gray14, border_color=term.orange))
+    entry.place(1, 2)
+    # Frame 2
+    dropdownMenu = DropdownMenu(frame2, width=12, height=1, text="Menu",
                                 style=RectangleStyle(text_style=term.white, bg_color=term.on_deepskyblue2),
-                                selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_goldenron1))
-    dropdownMenu.addItem("Print 1", lambda: print("1"))
-    dropdownMenu.addItem("Entry", lambda: print(entry1.getSavedText()))
-    optionMenu = OptionMenu(frame2, Point(84, 11), Point(97, 11), default_text="Beginner",
+                                selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_white))
+    optionMenu = OptionMenu(frame2, width=12, height=1, default_text="Beginner",
                             options=["Beginner", "Intermediate", "Expert"],
                             style=RectangleStyle(text_style=term.white, bg_color=term.on_slateblue1),
-                            selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_goldenron1))
+                            selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_white))
+    optionMenu.place(21, 4)
+    dropdownMenu.addItem("Entry", lambda: print(entry.getSavedText()))
     dropdownMenu.addItem("OptionsMenu", lambda: print(optionMenu.getValue()))
-    label3 = Label(frame3, Point(75, 9), Point(86, 7), "Frame 3",
-                   style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE))
+    # Frame 3
+    label = Label(frame3, width=24, height=3, text="Frame 3",
+                  style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE))
+    label.place(6, 2)
+    dropdownMenu.addItem("Label", lambda: label.setText(entry.getSavedText()))
+    dropdownMenu.place(1, 4)
 
-    # Functions
+    # ButtonFrame
 
     def frame1toggle():
         frame2.deactivate()
         frame3.deactivate()
         frame1.activate()
+        frame1.draw()
 
     def frame2toggle():
         frame1.deactivate()
         frame3.deactivate()
         frame2.activate()
+        frame2.draw()
 
     def frame3toggle():
         frame1.deactivate()
         frame2.deactivate()
         frame3.activate()
+        frame3.draw()
 
-    # Buttons
-    buttonFrame = Frame(window.mainframe, Point(64, 2), Point(97, 4))
-    button1 = Button(buttonFrame, Point(64, 2), Point(75, 4), text="Entry", command=frame1toggle,
+    buttonFrame = Frame(mainframe, 38, 5)
+    buttonFrame.place(1, 1)
+    button1 = Button(buttonFrame, width=12, height=3, text="Entry", command=frame1toggle,
                      style=RectangleStyle(term.on_darkorange2, term.white),
                      selected_style=RectangleStyle(term.on_darkorange2, term.underline_yellow,
                                                    border_style=BorderStyle.SINGLE))
-    button2 = Button(buttonFrame, Point(75, 2), Point(86, 4), text="Dropdowns", command=frame2toggle,
+    button1.place(1, 0)
+    button2 = Button(buttonFrame, width=12, height=3, text="Dropdowns", command=frame2toggle,
                      style=RectangleStyle(term.on_darkgreen, term.white),
                      selected_style=RectangleStyle(term.on_darkgreen, term.underline_yellow,
                                                    border_style=BorderStyle.DOUBLE))
-    button3 = Button(buttonFrame, Point(86, 2), Point(97, 4), text="Label", command=frame3toggle,
+    button2.place(13, 0)
+    button3 = Button(buttonFrame, width=12, height=3, text="Label", command=frame3toggle,
                      style=RectangleStyle(term.on_red4, term.white),
                      selected_style=RectangleStyle(term.on_red4, term.underline_yellow,
                                                    border_style=BorderStyle.SINGLE))
+    button3.place(25, 0)
 
     # Init
-    window.clear()
+    frame1.activate()
     frame2.deactivate()
     frame3.deactivate()
-    frame1.activate()  # Unnecesary cause all elements are shown by default
+    window.clear()
     window.draw()
     window.loop()
-
-    # print(term.home)
+    # window.clear()
+    window.flush()
