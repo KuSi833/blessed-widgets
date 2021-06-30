@@ -1,24 +1,23 @@
 from __future__ import annotations
-from widgets import Frame, Label, DropdownMenu, OptionMenu, Window, Button, Point, RectangleStyle, Entry
+from widgets import AbsoluteFrame, Label, DropdownMenu, OptionMenu, Window, Button, RectangleStyle, Entry
 from blessed import Terminal
 from constants import BorderStyle, HAlignment, VAlignment
-from time import sleep, time
 
 term = Terminal()
 with term.hidden_cursor():
     window = Window(term)
-    mainframe = Frame(window.mainframe, 40, 14,
+    mainframe = AbsoluteFrame(window.mainframe, 40, 14,
                       style=RectangleStyle(bg_color=term.on_gray14, text_style=term.orange,
                                            border_style=BorderStyle.SINGLE))
     mainframe.place(15, 2)
 
     title = Label(mainframe, width=11, height=1, text="Example")
     title.place(x=15, y=13)
-    frame1 = Frame(mainframe, 36, 6, style=RectangleStyle(bg_color=term.on_gray32))
+    frame1 = AbsoluteFrame(mainframe, 36, 6, style=RectangleStyle(bg_color=term.on_gray32))
     frame1.place(2, 6)
-    frame2 = Frame(mainframe, 36, 6)
+    frame2 = AbsoluteFrame(mainframe, 36, 6)
     frame2.place(2, 6)
-    frame3 = Frame(mainframe, 36, 6)
+    frame3 = AbsoluteFrame(mainframe, 36, 6)
     frame3.place(2, 6)
 
     # Frame 1
@@ -35,13 +34,13 @@ with term.hidden_cursor():
                             options=["Beginner", "Intermediate", "Expert"],
                             style=RectangleStyle(text_style=term.white, bg_color=term.on_slateblue1),
                             selected_style=RectangleStyle(text_style=term.gray38, bg_color=term.on_white))
-    optionMenu.place(21, 4)
+    optionMenu.place(23, 4)
     dropdownMenu.addItem("Entry", lambda: print(entry.getSavedText()))
     dropdownMenu.addItem("OptionsMenu", lambda: print(optionMenu.getValue()))
     # Frame 3
-    label = Label(frame3, width=24, height=3, text="Frame 3",
+    label = Label(frame2, width=24, height=3, text="Frame 3",
                   style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE))
-    label.place(6, 2)
+    label.place(6, 0)
     dropdownMenu.addItem("Label", lambda: label.setText(entry.getSavedText()))
     dropdownMenu.place(1, 4)
 
@@ -65,7 +64,7 @@ with term.hidden_cursor():
         frame3.activate()
         frame3.draw()
 
-    buttonFrame = Frame(mainframe, 38, 5)
+    buttonFrame = AbsoluteFrame(mainframe, 38, 5)
     buttonFrame.place(1, 1)
     button1 = Button(buttonFrame, width=12, height=3, text="Entry", command=frame1toggle,
                      style=RectangleStyle(term.on_darkorange2, term.white),

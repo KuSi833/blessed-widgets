@@ -18,5 +18,9 @@ class ElementNotPlaced(Exception):
     pass
 
 
+class InvalidAttributes(Exception):
+    pass
+
+
 class InvalidLayout(Exception):
     pass

@@ -39,8 +39,18 @@ class Element(ABC):
 
     def place(self, x: int, y: int) -> None:
         "Works with Layout.ABSOLUTE"
-        assert(isinstance(self.parent, Frame))
+        if not isinstance(self.parent, AbsoluteFrame):
+            raise InvalidLayout("Frame is not of type AbsoluteFrame")
+        assert(isinstance(self.parent, AbsoluteFrame))
         self.border = self.parent.placeElement(self, x, y)
+        self.activate()
+
+    def grid(self, row: int, column: int,
+             rowspan: int = 1, columnspan: int = 1) -> None:
+        if not isinstance(self.parent, GridFrame):
+            raise InvalidLayout("Frame is not of type GridFrame")
+        assert(isinstance(self.parent, GridFrame))
+        self.border = self.parent.placeElement(self, row, column, rowspan, columnspan)
         self.activate()
 
     def getWindow(self) -> Window:
@@ -130,15 +140,16 @@ class Visible(Element):  # Frame vs Label
     def constructDefaultStyle(self, style: Optional[RectangleStyle]) -> RectangleStyle:
         pass
 
-    def constructDefaultStyleTemplate(self, default_style: RectangleStyle,
-                                      style: Optional[RectangleStyle] = None,
-                                      ) -> RectangleStyle:
+    def constructDefaultStyleTemplate(
+            self, default_style: RectangleStyle, style: Optional[RectangleStyle] = None,
+            inheritance_vector: Tuple[bool, bool, bool, bool] = (False, False, False, False)) -> RectangleStyle:
         """
         Constructs default style in the following order of priority in descending order:
         1. Given style
         2. Inherited style
         3. Default style
-        Only BorderStyle isn't inherited
+        Inheritence vector controls which features are inherited (1 for true, 0 for false)
+        inheritence_vector is of form (bg_color, text_style, border_color, border_style)
         """
         if style is None:
             style = RectangleStyle()
@@ -146,6 +157,15 @@ class Visible(Element):  # Frame vs Label
             parentStyle = RectangleStyle()
         else:
             parentStyle = self.parent.getStyle()
+            # Controls which features are inherited
+            if inheritance_vector[0] is False:
+                parentStyle.bg_color = None
+            elif inheritance_vector[1] is False:
+                parentStyle.text_style = None
+            elif inheritance_vector[2] is False:
+                parentStyle.border_color = None
+            elif inheritance_vector[3] is False:
+                parentStyle.border_style = None
 
         bg_color: Optional[str] = getFirstAssigned([style.bg_color, parentStyle.bg_color],
                                                    default=default_style.bg_color)
@@ -272,50 +292,36 @@ class Focusable(Interactable):
 
 class Frame(Visible):
     def __init__(self, parent: Parent, width: int, height: int,
-                 layout: Optional[Layout] = None,
                  style: RectangleStyle = None) -> None:
         super().__init__(parent, width, height, style)
-        self.setLayout(layout)
         self.elements: List[Element] = []
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         return Interactable.constructDefaultStyleTemplate(self, style=style,
-                                                          default_style=RectangleStyle())
+                                                          default_style=RectangleStyle(),
+                                                          inheritance_vector=(True, True, True, True))
 
-    def setLayout(self, layout: Optional[Layout]) -> None:
-        self.layout = layout
-
-    def getLayout(self) -> Optional[Layout]:
-        return self.layout
-
-    def checkOutOfBounds(self, border: Rectangle) -> None:
+    def checkOutOfBounds(self, border: Rectangle, element: Element) -> None:
         if border.getEdge(Side.LEFT) < self.getBorder().getEdge(Side.LEFT):
-            raise BorderOutOfBounds(f"Left border edge ({border.getEdge(Side.LEFT)}) "
-                                    f"exceed parent border edge ({self.getBorder().getEdge(Side.LEFT)})")
+            raise BorderOutOfBounds(f"{type(element).__name__} {str(border)} "
+                                    f"LEFT border edge ({border.getEdge(Side.LEFT)}) "
+                                    f"exceeds {type(element.parent).__name__} {str(self.border)} "
+                                    f"LEFT border edge ({self.getBorder().getEdge(Side.LEFT)})")
         elif border.getEdge(Side.BOTTOM) < self.getBorder().getEdge(Side.BOTTOM):
-            raise BorderOutOfBounds(f"Bottom border edge ({border.getEdge(Side.BOTTOM)}) "
-                                    f"exceed parent border edge ({self.getBorder().getEdge(Side.BOTTOM)})")
+            raise BorderOutOfBounds(f"{type(element).__name__} {str(border)} "
+                                    f"BOTTOM border edge ({border.getEdge(Side.BOTTOM)}) "
+                                    f"exceeds {type(element.parent).__name__} {str(self.border)} "
+                                    f"BOTTOM border edge ({self.getBorder().getEdge(Side.BOTTOM)})")
         elif border.getEdge(Side.TOP) > self.getBorder().getEdge(Side.TOP):
-            raise BorderOutOfBounds(f"Top border edge ({border.getEdge(Side.TOP)}) "
-                                    f"exceed parent border edge ({self.getBorder().getEdge(Side.TOP)})")
+            raise BorderOutOfBounds(f"{type(element).__name__} {str(border)} "
+                                    f"top border edge ({border.getEdge(Side.TOP)}) "
+                                    f"exceeds {type(element.parent).__name__} {str(self.border)} "
+                                    f"top border edge ({self.getBorder().getEdge(Side.TOP)})")
         elif border.getEdge(Side.RIGHT) > self.getBorder().getEdge(Side.RIGHT):
-            raise BorderOutOfBounds(f"Right border edge ({border.getEdge(Side.RIGHT)}) "
-                                    f"exceed parent border edge ({self.getBorder().getEdge(Side.RIGHT)})")
-
-    def getFrameAnchor(self) -> Point:
-        self.raiseIfNotPlaced()
-        return self.getBorder().corners["bl"]
-
-    def placeElement(self, element: Element, x: int, y: int) -> Rectangle:
-        if self.getLayout() is None:
-            self.setLayout(Layout.ABSOLUTE)
-        elif self.getLayout() is not Layout.ABSOLUTE:  # TODO Solved using Mainframe
-            raise InvalidLayout(f"Parent layout isn't ABSOLUTE, instead it is {self.parent.getLayout().value}")
-        anchor = self.getFrameAnchor()
-        border = Rectangle(anchor + Point(x, y),
-                           anchor + Point(x, y) + Point(element.width, element.height - 1))
-        self.checkOutOfBounds(border)
-        return border
+            raise BorderOutOfBounds(f"{type(element).__name__} {str(border)} "
+                                    f"RIGHT border edge ({border.getEdge(Side.RIGHT)}) "
+                                    f"exceeds {type(element.parent).__name__} {str(self.border)} "
+                                    f"RIGHT border edge ({self.getBorder().getEdge(Side.RIGHT)})")
 
     def addElement(self, element: Element) -> None:
         # if self.checkOutOfBounds(element):
@@ -340,6 +346,23 @@ class Frame(Visible):
                         elements.append(element)
         return elements
 
+
+class AbsoluteFrame(Frame):
+    def __init__(self, parent: Parent,
+                 width: int, height: int, style: RectangleStyle = None) -> None:
+        super().__init__(parent, width, height, style=style)
+
+    def getFrameAnchor(self) -> Point:
+        self.raiseIfNotPlaced()
+        return self.getBorder().corners["bl"]
+
+    def placeElement(self, element: Element, x: int, y: int) -> Rectangle:
+        anchor = self.getFrameAnchor()
+        border = Rectangle(anchor + Point(x, y),
+                           anchor + Point(x, y) + Point(element.width, element.height - 1))
+        self.checkOutOfBounds(border, element)
+        return border
+
     def draw(self) -> None:
         self.raiseIfNotPlaced()
         if self.isActive():
@@ -349,12 +372,54 @@ class Frame(Visible):
                     element.draw()
 
 
+class GridFrame(Frame):
+    def __init__(self, parent: Parent,
+                 width: int, height: int, style: RectangleStyle,
+                 rows: int, columns: int,
+                 inner_border: Optional[BorderStyle] = None) -> None:
+        super().__init__(parent, width, height, style=style)
+        self.inner_border = inner_border
+        self.setRows(rows)
+        self.setColumns(columns)
+
+
+    def placeElement(self, element: Element, row: int, column: int,
+                     rowspan: int = 1, columnspan: int = 1) -> Rectangle:
+        pass
+
+    def getCellWidth(self) -> int:
+        return self.width // self.columns
+
+    def getCellHeight(self) -> int:
+        return self.height // self.rows
+
+    def setRows(self, rows: int) -> None:
+        maxplaces = self.height
+        if rows < 1:
+            raise ValueError("Rows must be >= 1")
+        if self.inner_border:
+            maxplaces -= rows + 1
+        if maxplaces < rows:
+            raise ValueError("Not enough space for each row")
+        self.rows = rows
+
+    def setColumns(self, columns: int) -> None:
+        maxplaces = self.width
+        if columns < 1:
+            raise ValueError("Columns must be >= 1")
+        if self.inner_border:
+            maxplaces -= columns + 1
+        if maxplaces < columns:
+            raise ValueError("Not enough space for each column")
+        self.columns = columns
+
+
 class Window():
     def __init__(self, term: Terminal) -> None:
         self.term = term
         self.window_state = WindowState.VIEW
         self.active_element: Optional[Interactable] = None
-        Frame(self, self.term.width, self.term.height)
+        AbsoluteFrame(self, self.term.width, self.term.height)
         self.mainframe.activate()
 
     def getWindow(self) -> Window:
@@ -449,8 +514,8 @@ class Window():
 
     def addElement(self, element: Element) -> None:
         "Allows for only one element to be added, which is a single Frame"
-        if not isinstance(element, Frame):
-            raise InvalidElement("Only a single element of type Frame can be added to a Window")
+        if not isinstance(element, AbsoluteFrame):
+            raise InvalidLayout("Only a single element of type AbsoluteFrame can be added to a Window")
         self.mainframe = element
         self.mainframe.border = Rectangle(Point(0, 0),
                                           Point(self.term.width, self.term.height))
@@ -687,7 +752,7 @@ class Label(Visible, HasText):
         return Interactable.constructDefaultStyleTemplate(
             self, default_style=RectangleStyle(
                 bg_color=self.getWindow().term.normal, text_style=self.getWindow().term.white),
-            style=style)
+            style=style, inheritance_vector=(True, True, True, True))
 
     def draw(self) -> None:
         self.getBorder().draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
@@ -710,10 +775,11 @@ class Button(Interactable, HasText):
         self.onClick(command)
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
-        return Interactable.constructDefaultStyleTemplate(self, style=style,
-                                                          default_style=RectangleStyle(
-                                                              bg_color=self.getWindow().term.on_white,
-                                                              text_style=self.getWindow().term.black))
+        return Interactable.constructDefaultStyleTemplate(
+            self, style=style,
+            default_style=RectangleStyle(
+                bg_color=self.getWindow().term.on_white, text_style=self.getWindow().term.black),
+            inheritance_vector=(False, True, False, False))  # Only inherits text style
 
     def draw(self) -> None:
         self.getBorder().draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
@@ -755,12 +821,12 @@ class Entry(Focusable, HasText):
         self.highlight_color: str = getFirstAssigned([highlight_color], self.getWindow().term.on_gray38)
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
-        return Interactable.constructDefaultStyleTemplate(self, style=style,
-                                                          default_style=RectangleStyle(
-                                                              bg_color=self.getWindow().term.normal,
-                                                              text_style=self.getWindow().term.white,
-                                                              border_color=self.getWindow().term.white,
-                                                              border_style=BorderStyle.SINGLE))
+        return Interactable.constructDefaultStyleTemplate(
+            self, style=style,
+            default_style=RectangleStyle(
+                bg_color=self.getWindow().term.normal, text_style=self.getWindow().term.white,
+                border_color=self.getWindow().term.white, border_style=BorderStyle.SINGLE),
+            inheritance_vector=(False, True, True, True))  # Doesn't inherit bg_color
 
     def click(self) -> Response:
         self.text = self.saved_text
@@ -869,7 +935,7 @@ class DropdownMenu(Focusable, HasText):
                            selected_style, clicked_style, disabled_style,  # Interactable
                            focused_style)  # Focusable
         HasText.__init__(self, None, padding, h_align, v_align, width, height)
-        self.itemFrame = Frame(parent, width, height)
+        self.itemFrame = AbsoluteFrame(parent, width, height)
         # TODO: add ▼ to main button
         self.mainButton = Button(self.itemFrame, width, height,
                                  command=self.toggleFocused,
@@ -954,7 +1020,7 @@ class DropdownMenu(Focusable, HasText):
         return Interactable.constructDefaultStyleTemplate(
             self, default_style=RectangleStyle(
                 bg_color=self.getWindow().term.on_white, text_style=self.getWindow().term.black),
-            style=style)
+            style=style, inheritance_vector=(False, False, False, False))  # Doesn't inherit
 
     def getItemHeight(self) -> int:
         return self.height
