@@ -7,8 +7,8 @@ term = Terminal()
 with term.hidden_cursor():
     window = Window(term)
     mainframe = AbsoluteFrame(window.mainframe, 40, 14,
-                      style=RectangleStyle(bg_color=term.on_gray14, text_style=term.orange,
-                                           border_style=BorderStyle.SINGLE))
+                              style=RectangleStyle(bg_color=term.on_gray14, text_style=term.orange,
+                                                   border_style=BorderStyle.SINGLE))
     mainframe.place(15, 2)
 
     title = Label(mainframe, width=11, height=1, text="Example")
@@ -22,9 +22,9 @@ with term.hidden_cursor():
 
     # Frame 1
     entry = Entry(frame1, width=34, height=3, default_text="default",
-                  style=RectangleStyle(bg_color=term.on_gray14),
-                  selected_style=RectangleStyle(bg_color=term.on_gray14, border_color=term.yellow),
-                  focused_style=RectangleStyle(bg_color=term.on_gray14, border_color=term.orange))
+                  style=RectangleStyle(bg_color=term.on_gray12),
+                  selected_style=RectangleStyle(bg_color=term.on_gray12, border_color=term.yellow),
+                  focused_style=RectangleStyle(bg_color=term.on_gray12, border_color=term.orange))
     entry.place(1, 2)
     # Frame 2
     dropdownMenu = DropdownMenu(frame2, width=12, height=1, text="Menu",
@@ -39,7 +39,8 @@ with term.hidden_cursor():
     dropdownMenu.addItem("OptionsMenu", lambda: print(optionMenu.getValue()))
     # Frame 3
     label = Label(frame2, width=24, height=3, text="Frame 3",
-                  style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE))
+                  style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE,
+                                       bg_color=term.on_gray12))
     label.place(6, 0)
     dropdownMenu.addItem("Label", lambda: label.setText(entry.getSavedText()))
     dropdownMenu.place(1, 4)

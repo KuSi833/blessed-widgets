@@ -967,6 +967,7 @@ class DropdownMenu(Focusable, HasText):
         self.active_item = self.itemButtons[self.active_index]
         self.active_item.toggleSelected()
         self.itemFrame.deactivate()
+        self.parent.draw()
         return super().unfocus()
 
     def click(self) -> Response:
@@ -1020,7 +1021,7 @@ class DropdownMenu(Focusable, HasText):
         return Interactable.constructDefaultStyleTemplate(
             self, default_style=RectangleStyle(
                 bg_color=self.getWindow().term.on_white, text_style=self.getWindow().term.black),
-            style=style, inheritance_vector=(False, False, False, False))  # Doesn't inherit
+            style=style, inheritance_vector=(True, False, False, False))  # Doesn't inherit
 
     def getItemHeight(self) -> int:
         return self.height
