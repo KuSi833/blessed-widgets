@@ -11,15 +11,15 @@ with term.hidden_cursor():
                                                border_style=BorderStyle.SINGLE,
                                                border_color=term.orange),
                           inner_border=True)
-    gridframe.place(5, 5)
-    button1 = Button(gridframe, width=14, height=4, command=lambda: print("o"), text="o",
+    gridframe.place(35, 5)
+    button1 = Button(gridframe, width=14, height=1, command=lambda: print("o"), text="o",
                      style=RectangleStyle(bg_color=term.on_red),
                      selected_style=RectangleStyle(bg_color=term.on_blue))
     button1.grid(0, 0, rowspan=2, columnspan=3)
-    button2 = Button(gridframe, width=1, height=1, command=lambda: print("o"), text="o",
+    button2 = Button(gridframe, width=15, height=1, command=lambda: print("o"), text="o",
                      style=RectangleStyle(bg_color=term.on_red),
                      selected_style=RectangleStyle(bg_color=term.on_blue))
-    button2.grid(3, 1, padx=4, pady=1)
+    button2.grid(2, 2, columnspan=2)
     # button3 = Button(gridframe, width=1, height=1, command=lambda: print("o"), text="o",
     #                  style=RectangleStyle(bg_color=term.on_red),
     #                  selected_style=RectangleStyle(bg_color=term.on_blue))

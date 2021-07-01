@@ -484,26 +484,56 @@ class GridFrame(Frame):
                                 if x == len(self.widths) - 1:
                                     command += "─" * width + "┘"
                                 else:
-                                    command += "─" * width + "┴"
-                        elif slice == 0:
+                                    command += "─" * width
+                                    if self.matrix[y][x] == self.matrix[y][x + 1] and self.matrix[y][x] is not None:
+                                        command += "─"
+                                    else:
+                                        command += "┴"
+                        elif slice == 0 and y != 0:
                             command += "├"
                             for x, width in enumerate(self.widths):
                                 if x == len(self.widths) - 1:
                                     command += "─" * width + "┤"
                                 else:
-                                    command += "─" * width + "┼"
+                                    top = True
+                                    bot = True
+                                    if self.matrix[y - 1][x] is not None:
+                                        if self.matrix[y - 1][x] == self.matrix[y - 1][x + 1]:
+                                            bot = False
+                                    if self.matrix[y][x] == self.matrix[y][x + 1] and self.matrix[y][x] is not None:
+                                        top = False
+                                    command += "─" * width
+                                    if top and bot:
+                                        command += "┼"
+                                    elif top:
+                                        command += "┴"
+                                    elif bot:
+                                        command += "┬"
+                                    else:
+                                        command += "─"
+
                         else:
                             command += "│"
                             for x, width in enumerate(self.widths):
-                                command += " " * width + "│"
+                                command += " " * width
+                                if x != len(self.widths) - 1:
+                                    if self.matrix[y][x] == self.matrix[y][x + 1] and self.matrix[y][x] is not None:
+                                        command += " "
+                                    else:
+                                        command += "│"
+                            command += "│"
                     command += window.moveXY(Point(border.getEdge(Side.LEFT),
                                                    border.getEdge(Side.BOTTOM) + sum(self.heights) + y + 1))
                     command += "┌"
                     for x, width in enumerate(self.widths):
+                        command += "─" * width
                         if x == len(self.widths) - 1:
-                            command += "─" * width + "┐"
+                            command += "┐"
                         else:
-                            command += "─" * width + "┬"
+                            if self.matrix[y][x] == self.matrix[y][x + 1] and self.matrix[y][x] is not None:
+                                command += "─"
+                            else:
+                                command += "┬"
 
         print(command)
         window.flush()
