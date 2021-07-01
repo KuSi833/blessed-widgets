@@ -39,7 +39,7 @@ with term.hidden_cursor():
     dropdownMenu.addItem("OptionsMenu", lambda: print(optionMenu.getValue()))
     # Frame 3
     label = Label(frame2, width=24, height=3, text="Frame 3",
-                  style=RectangleStyle(text_style=term.red4, border_style=BorderStyle.SINGLE,
+                  style=RectangleStyle(text_style=term.darkturquoise, border_style=BorderStyle.SINGLE,
                                        bg_color=term.on_gray12))
     label.place(6, 0)
     dropdownMenu.addItem("Label", lambda: label.setText(entry.getSavedText()))

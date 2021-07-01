@@ -37,6 +37,12 @@ class Element(ABC):
         self.height = height
         self.active = False
 
+    def getWidth(self) -> int:
+        return self.width
+
+    def getHeight(self) -> int:
+        return self.height
+
     def place(self, x: int, y: int) -> None:
         "Works with Layout.ABSOLUTE"
         if not isinstance(self.parent, AbsoluteFrame):
@@ -45,7 +51,7 @@ class Element(ABC):
         self.border = self.parent.placeElement(self, x, y)
         self.activate()
 
-    def grid(self, row: int, column: int,
+    def grid(self, column: int, row: int,
              rowspan: int = 1, columnspan: int = 1) -> None:
         if not isinstance(self.parent, GridFrame):
             raise InvalidLayout("Frame is not of type GridFrame")
@@ -296,9 +302,14 @@ class Frame(Visible):
         super().__init__(parent, width, height, style)
         self.elements: List[Element] = []
 
+    def getAnchor(self) -> Point:
+        self.raiseIfNotPlaced()
+        return self.getBorder().corners["bl"]
+
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         return Interactable.constructDefaultStyleTemplate(self, style=style,
-                                                          default_style=RectangleStyle(),
+                                                          default_style=RectangleStyle(
+                                                              border_color=self.getWindow().term.white),
                                                           inheritance_vector=(True, True, True, True))
 
     def checkOutOfBounds(self, border: Rectangle, element: Element) -> None:
@@ -352,14 +363,9 @@ class AbsoluteFrame(Frame):
                  width: int, height: int, style: RectangleStyle = None) -> None:
         super().__init__(parent, width, height, style=style)
 
-    def getFrameAnchor(self) -> Point:
-        self.raiseIfNotPlaced()
-        return self.getBorder().corners["bl"]
-
     def placeElement(self, element: Element, x: int, y: int) -> Rectangle:
-        anchor = self.getFrameAnchor()
-        border = Rectangle(anchor + Point(x, y),
-                           anchor + Point(x, y) + Point(element.width, element.height - 1))
+        border = Rectangle(self.getAnchor() + Point(x, y),
+                           self.getAnchor() + Point(x, y) + Point(element.width, element.height - 1))
         self.checkOutOfBounds(border, element)
         return border
 
@@ -374,24 +380,33 @@ class AbsoluteFrame(Frame):
 
 class GridFrame(Frame):
     def __init__(self, parent: Parent,
-                 width: int, height: int, style: RectangleStyle,
-                 rows: int, columns: int,
-                 inner_border: Optional[BorderStyle] = None) -> None:
+                 style: RectangleStyle,
+                 widths: List[int], heights: List[int],
+                 inner_border: bool = False) -> None:
+        width = sum(widths)
+        height = sum(heights)
+        self.widths = widths
+        self.heights = heights
+        if inner_border:
+            width += len(widths) + 1
+            height += len(heights) + 1
         super().__init__(parent, width, height, style=style)
         self.inner_border = inner_border
-        self.setRows(rows)
-        self.setColumns(columns)
-
+        self.setRows(len(heights))
+        self.setColumns(len(widths))
 
     def placeElement(self, element: Element, row: int, column: int,
                      rowspan: int = 1, columnspan: int = 1) -> Rectangle:
-        pass
-
-    def getCellWidth(self) -> int:
-        return self.width // self.columns
-
-    def getCellHeight(self) -> int:
-        return self.height // self.rows
+        border = Rectangle(
+            self.getAnchor() + Point(
+                sum(self.widths[:column]) + column + 1,
+                sum(self.heights[:row]) + row + 1
+            ), self.getAnchor() + Point(
+                sum(self.widths[:column + columnspan]) + column + columnspan,
+                sum(self.heights[:row + rowspan]) + row + rowspan - 1
+            ))
+        self.checkOutOfBounds(border, element)
+        return border
 
     def setRows(self, rows: int) -> None:
         maxplaces = self.height
@@ -412,6 +427,64 @@ class GridFrame(Frame):
         if maxplaces < columns:
             raise ValueError("Not enough space for each column")
         self.columns = columns
+
+    def drawGrid(self) -> None:
+        command = ''
+        border = self.getBorder()
+        style = self.getStyle()
+        window = self.getWindow()
+        if style.bg_color:
+            command += style.bg_color
+        if self.getWidth() < 2 or self.getHeight() < 2:
+            raise RectangleTooSmall("Unable to fit border on such small rectangle, must be at least 2x2")
+        else:
+            if style.border_style is BorderStyle.SINGLE:
+                if style.border_color:
+                    command += style.border_color
+                for y, height in enumerate(self.heights):
+                    for slice in range(height + 1):
+                        command += window.moveXY(Point(border.getEdge(Side.LEFT),
+                                                       border.getEdge(Side.BOTTOM) + sum(self.heights[:y]) + y + slice))
+                        if y == 0 and slice == 0:
+                            command += "└"
+                            for x, width in enumerate(self.widths):
+                                if x == len(self.widths) - 1:
+                                    command += "─" * width + "┘"
+                                else:
+                                    command += "─" * width + "┴"
+                        elif slice == 0:
+                            command += "├"
+                            for x, width in enumerate(self.widths):
+                                if x == len(self.widths) - 1:
+                                    command += "─" * width + "┤"
+                                else:
+                                    command += "─" * width + "┼"
+                        else:
+                            command += "│"
+                            for x, width in enumerate(self.widths):
+                                command += " " * width + "│"
+                    command += window.moveXY(Point(border.getEdge(Side.LEFT),
+                                                   border.getEdge(Side.BOTTOM) + sum(self.heights) + y + 1))
+                    command += "┌"
+                    for x, width in enumerate(self.widths):
+                        if x == len(self.widths) - 1:
+                            command += "─" * width + "┐"
+                        else:
+                            command += "─" * width + "┬"
+
+        print(command)
+        window.flush()
+
+    def draw(self) -> None:
+        self.raiseIfNotPlaced()
+        if self.isActive():
+            if self.inner_border:
+                self.drawGrid()
+            else:
+                self.drawBackground(self.getWindow(), self.getStyle())
+            for element in self.elements:
+                if element.isPlaced():
+                    element.draw()
 
 
 class Window():
