@@ -1,7 +1,7 @@
 from __future__ import annotations
 from blessed import Terminal
 from exceptions import (
-    BorderOutOfBounds, ElementNotPlaced, InvalidElement,
+    BorderOutOfBounds, CellOutOfBounds, ElementNotPlaced, InvalidElement,
     InvalidLayout, PaddingOverflow, RectangleTooSmall)
 import numpy as np
 
@@ -52,11 +52,12 @@ class Element(ABC):
         self.activate()
 
     def grid(self, column: int, row: int,
-             rowspan: int = 1, columnspan: int = 1) -> None:
+             rowspan: int = 1, columnspan: int = 1, padx: int = 0, pady: int = 0) -> None:
         if not isinstance(self.parent, GridFrame):
             raise InvalidLayout("Frame is not of type GridFrame")
         assert(isinstance(self.parent, GridFrame))
-        self.border = self.parent.placeElement(self, row, column, rowspan, columnspan)
+        self.border = self.parent.placeElement(element=self, padx=padx, pady=pady, row=row, column=column,
+                                               rowspan=rowspan, columnspan=columnspan)
         self.activate()
 
     def getWindow(self) -> Window:
@@ -383,27 +384,59 @@ class GridFrame(Frame):
                  style: RectangleStyle,
                  widths: List[int], heights: List[int],
                  inner_border: bool = False) -> None:
-        width = sum(widths)
-        height = sum(heights)
+        self.width = sum(widths)
+        self.height = sum(heights)
         self.widths = widths
         self.heights = heights
+        self.setMatrix()
         if inner_border:
-            width += len(widths) + 1
-            height += len(heights) + 1
-        super().__init__(parent, width, height, style=style)
+            self.width += len(widths) + 1
+            self.height += len(heights) + 1
+        super().__init__(parent, self.width, self.height, style=style)
         self.inner_border = inner_border
         self.setRows(len(heights))
         self.setColumns(len(widths))
 
-    def placeElement(self, element: Element, row: int, column: int,
+    def setMatrix(self) -> None:
+        self.matrix: List[List[Optional[Element]]] = []
+        for r in range(len(self.heights)):
+            temp = []
+            for c in range(len(self.widths)):
+                temp.append(None)
+            self.matrix.append(temp)
+
+    def assignCells(self, element: Element, row: int, column: int, rowspan: int, columnspan: int) -> None:
+        for r in range(row, row + rowspan):
+            for c in range(column, column + columnspan):
+                if self.matrix[r][c] is not None:
+                    raise CellOutOfBounds("Cell is out of bounds")
+                else:
+                    self.matrix[r][c] = element
+
+    def raiseIfBorderOutOfBounds(self, element: Element, padx: int, pady: int, row: int, column: int,
+                                 rowspan: int, columnspan: int) -> None:
+        element_height = pady + element.getHeight()
+        element_width = padx + element.getWidth()
+        cell_height = sum(self.heights[row:row + rowspan]) + rowspan - 1
+        cell_width = sum(self.widths[column:column + columnspan]) + columnspan - 1
+        if element_height > cell_height:
+            raise BorderOutOfBounds(f"Height of element: {element_height} "
+                                    f"exceeds height of cell: {cell_height}")
+        if element_width > cell_width:
+            raise BorderOutOfBounds(f"Width of element: {element_width} "
+                                    f"exceeds width of cell: {cell_width}")
+
+    def placeElement(self, element: Element, padx: int, pady: int, row: int, column: int,
                      rowspan: int = 1, columnspan: int = 1) -> Rectangle:
+        self.assignCells(element, row, column, rowspan, columnspan)
+        self.raiseIfBorderOutOfBounds(element, padx, pady, row, column, rowspan, columnspan)
         border = Rectangle(
             self.getAnchor() + Point(
-                sum(self.widths[:column]) + column + 1,
-                sum(self.heights[:row]) + row + 1
+                sum(self.widths[:column]) + column + 1 + padx,
+                sum(self.heights[:row]) + row + 1 + pady
             ), self.getAnchor() + Point(
-                sum(self.widths[:column + columnspan]) + column + columnspan,
-                sum(self.heights[:row + rowspan]) + row + rowspan - 1
+                sum(self.widths[:column]) + element.getWidth() + column + 1 + padx,
+                sum(self.heights[:row]) + element.getHeight() + row + pady
             ))
         self.checkOutOfBounds(border, element)
         return border
@@ -481,7 +514,7 @@ class GridFrame(Frame):
             if self.inner_border:
                 self.drawGrid()
             else:
-                self.drawBackground(self.getWindow(), self.getStyle())
+                self.getBorder().drawBackground(self.getWindow(), self.getStyle())
             for element in self.elements:
                 if element.isPlaced():
                     element.draw()

@@ -24,3 +24,7 @@ class InvalidAttributes(Exception):
 
 class InvalidLayout(Exception):
     pass
+
+
+class CellOutOfBounds(BorderOutOfBounds):
+    pass
