@@ -461,6 +461,9 @@ class GridFrame(Frame):
             raise ValueError("Not enough space for each column")
         self.columns = columns
 
+    def compareCells(self, x1: int, y1: int, x2: int, y2: int) -> bool:
+        return self.matrix[y1][x1] == self.matrix[y2][x2] and self.matrix[y1][x1] is not None
+
     def drawGrid(self) -> None:
         command = ''
         border = self.getBorder()
@@ -472,68 +475,126 @@ class GridFrame(Frame):
             raise RectangleTooSmall("Unable to fit border on such small rectangle, must be at least 2x2")
         else:
             if style.border_style is BorderStyle.SINGLE:
-                if style.border_color:
-                    command += style.border_color
-                for y, height in enumerate(self.heights):
-                    for slice in range(height + 1):
-                        command += window.moveXY(Point(border.getEdge(Side.LEFT),
-                                                       border.getEdge(Side.BOTTOM) + sum(self.heights[:y]) + y + slice))
-                        if y == 0 and slice == 0:
-                            command += "└"
-                            for x, width in enumerate(self.widths):
-                                if x == len(self.widths) - 1:
-                                    command += "─" * width + "┘"
-                                else:
-                                    command += "─" * width
-                                    if self.matrix[y][x] == self.matrix[y][x + 1] and self.matrix[y][x] is not None:
-                                        command += "─"
-                                    else:
-                                        command += "┴"
-                        elif slice == 0 and y != 0:
-                            command += "├"
-                            for x, width in enumerate(self.widths):
-                                if x == len(self.widths) - 1:
-                                    command += "─" * width + "┤"
-                                else:
-                                    top = True
-                                    bot = True
-                                    if self.matrix[y - 1][x] is not None:
-                                        if self.matrix[y - 1][x] == self.matrix[y - 1][x + 1]:
-                                            bot = False
-                                    if self.matrix[y][x] == self.matrix[y][x + 1] and self.matrix[y][x] is not None:
-                                        top = False
-                                    command += "─" * width
-                                    if top and bot:
-                                        command += "┼"
-                                    elif top:
-                                        command += "┴"
-                                    elif bot:
-                                        command += "┬"
-                                    else:
-                                        command += "─"
+                br = "┌"
+                lr = "─"
+                blr = "┬"
+                bl = "┐"
+                tb = "│"
+                tbr = "├"
+                tblr = "┼"
+                tbl = "┤"
+                tr = "└"
+                tlr = "┴"
+                tl = "┘"
+            elif style.border_style is BorderStyle.DOUBLE:
+                br = "╔"
+                lr = "═"
+                blr = "╦"
+                bl = "╗"
+                tb = "║"
+                tbr = "╠"
+                tblr = "╬"
+                tbl = "╣"
+                tr = "╚"
+                tlr = "╩"
+                tl = "╝"
+            else:
+                br = " "
+                lr = " "
+                blr = " "
+                bl = " "
+                tb = " "
+                tbr = " "
+                tblr = " "
+                tbl = " "
+                tr = " "
+                tlr = " "
+                tl = " "
 
-                        else:
-                            command += "│"
-                            for x, width in enumerate(self.widths):
-                                command += " " * width
-                                if x != len(self.widths) - 1:
-                                    if self.matrix[y][x] == self.matrix[y][x + 1] and self.matrix[y][x] is not None:
-                                        command += " "
-                                    else:
-                                        command += "│"
-                            command += "│"
+            if style.border_color:
+                command += style.border_color
+            for y, height in enumerate(self.heights):
+                for slice in range(height + 1):
                     command += window.moveXY(Point(border.getEdge(Side.LEFT),
-                                                   border.getEdge(Side.BOTTOM) + sum(self.heights) + y + 1))
-                    command += "┌"
-                    for x, width in enumerate(self.widths):
-                        command += "─" * width
-                        if x == len(self.widths) - 1:
-                            command += "┐"
-                        else:
-                            if self.matrix[y][x] == self.matrix[y][x + 1] and self.matrix[y][x] is not None:
-                                command += "─"
+                                                   border.getEdge(Side.BOTTOM) + sum(self.heights[:y]) + y + slice))
+                    if y == 0 and slice == 0:
+                        command += tr
+                        for x, width in enumerate(self.widths):
+                            if x == len(self.widths) - 1:
+                                command += lr * width + tl
                             else:
-                                command += "┬"
+                                command += lr * width
+                                if self.compareCells(x, y, x + 1, y):
+                                    command += lr
+                                else:
+                                    command += tlr
+                    elif slice == 0 and y != 0:
+                        if self.compareCells(x, y, x, y - 1):
+                            command += tb
+                        else:
+                            command += tbr
+                        for x, width in enumerate(self.widths):
+                            if self.compareCells(x, y, x, y - 1):
+                                command += " " * width
+                            else:
+                                command += lr * width
+                            if x == len(self.widths) - 1:
+                                if self.compareCells(x, y - 1, x, y):
+                                    command += tb
+                                else:
+                                    command += tbl
+                            else:
+                                top = not self.compareCells(x, y, x + 1, y)
+                                bot = not self.compareCells(x, y - 1, x + 1, y - 1)
+                                left = not self.compareCells(x, y - 1, x, y)
+                                right = not self.compareCells(x + 1, y - 1, x + 1, y)
+                                if not top and not bot and not left and not right:
+                                    command += " "
+                                elif not top and not bot and left and right:
+                                    command += lr
+                                elif not top and bot and not left and right:
+                                    command += br
+                                elif not top and bot and left and not right:
+                                    command += bl
+                                elif not top and bot and left and right:
+                                    command += blr
+                                elif top and not bot and not left and right:
+                                    command += tr
+                                elif top and not bot and left and not right:
+                                    command += tl
+                                elif top and not bot and left and right:
+                                    command += tlr
+                                elif top and bot and not left and not right:
+                                    command += tb
+                                elif top and bot and not left and right:
+                                    command += tbr
+                                elif top and bot and left and not right:
+                                    command += tbl
+                                elif top and bot and left and right:
+                                    command += tblr
+
+                    else:
+                        command += tb
+                        for x, width in enumerate(self.widths):
+                            command += " " * width
+                            if x != len(self.widths) - 1:
+                                if self.compareCells(x, y, x + 1, y):
+                                    command += " "
+                                else:
+                                    command += tb
+                        command += tb
+                command += window.moveXY(Point(border.getEdge(Side.LEFT),
+                                               border.getEdge(Side.BOTTOM) + sum(self.heights) + y + 1))
+                command += br
+                for x, width in enumerate(self.widths):
+                    command += lr * width
+                    if x == len(self.widths) - 1:
+                        command += bl
+                    else:
+                        if self.compareCells(x, y, x + 1, y):
+                            command += lr
+                        else:
+                            command += blr
 
         print(command)
         window.flush()
