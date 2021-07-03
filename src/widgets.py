@@ -864,7 +864,7 @@ class Rectangle():
         command = ''
         if style.bg_color:
             command += style.bg_color
-        if style.border_style:
+        if style.border_style is not BorderStyle.NONE and style.border_style is not None:
             if self.getWidth() < 2 or self.getHeight() < 2:
                 raise RectangleTooSmall("Unable to fit border on such small rectangle, must be at least 2x2")
             else:

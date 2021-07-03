@@ -54,6 +54,7 @@ class Direction(Enum):
 class BorderStyle(Enum):
     SINGLE = auto()
     DOUBLE = auto()
+    NONE = auto()
 
 
 @unique
