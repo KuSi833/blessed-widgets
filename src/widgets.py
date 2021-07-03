@@ -1,7 +1,7 @@
 from __future__ import annotations
 from blessed import Terminal
 from exceptions import (
-    BorderOutOfBounds, CellOutOfBounds, ElementNotPlaced, InvalidElement,
+    BorderOutOfBounds, CellOutOfBounds, ElementNotPlaced, InvalidAttributes, InvalidElement,
     InvalidLayout, PaddingOverflow, RectangleTooSmall)
 import numpy as np
 
@@ -391,15 +391,20 @@ class GridFrame(Frame):
         if inner_border:
             self.width += len(widths) + 1
             self.height += len(heights) + 1
+        elif style.border_style is not None:
+            self.width += 2
+            self.height += 2
         super().__init__(parent, self.width, self.height, style=style)
         self.inner_border = inner_border
+        if self.inner_border and self.style.border_style is None:
+            raise InvalidAttributes("Must declare outter border style if inner border is used")
         self.setRows(len(heights))
         self.setColumns(len(widths))
 
     def setMatrix(self) -> None:
         self.matrix: List[List[Optional[Element]]] = []
         for r in range(len(self.heights)):
-            temp = []
+            temp: List[Optional[Element]] = []
             for c in range(len(self.widths)):
                 temp.append(None)
             self.matrix.append(temp)
@@ -416,8 +421,11 @@ class GridFrame(Frame):
                                  rowspan: int, columnspan: int) -> None:
         element_height = pady + element.getHeight()
         element_width = padx + element.getWidth()
-        cell_height = sum(self.heights[row:row + rowspan]) + rowspan - 1
-        cell_width = sum(self.widths[column:column + columnspan]) + columnspan - 1
+        cell_height = sum(self.heights[row:row + rowspan])
+        cell_width = sum(self.widths[column:column + columnspan])
+        if self.inner_border:
+            cell_height += rowspan - 1
+            cell_width += columnspan - 1
         if element_height > cell_height:
             raise BorderOutOfBounds(f"Height of element: {element_height} "
                                     f"exceeds height of cell: {cell_height}")
@@ -431,12 +439,20 @@ class GridFrame(Frame):
         self.raiseIfBorderOutOfBounds(element, padx, pady, row, column, rowspan, columnspan)
         border = Rectangle(
             self.getAnchor() + Point(
-                sum(self.widths[:column]) + column + 1 + padx,
-                sum(self.heights[:row]) + row + 1 + pady
+                sum(self.widths[:column]) + padx,
+                sum(self.heights[:row]) + pady
             ), self.getAnchor() + Point(
-                sum(self.widths[:column]) + element.getWidth() + column + 1 + padx,
-                sum(self.heights[:row]) + element.getHeight() + row + pady
+                sum(self.widths[:column]) + element.getWidth() + padx,
+                sum(self.heights[:row]) + element.getHeight() + pady - 1
             ))
+        if self.style.border_style is not None:
+            border.p1 = border.p1 + Point(1, 1)
+            border.p2 = border.p2 + Point(1, 1)
+            border.updateCorners()
+        if self.inner_border:
+            border.p1 = border.p1 + Point(column, row)
+            border.p2 = border.p2 + Point(column, row)
+            border.updateCorners()
         self.checkOutOfBounds(border, element)
         return border
 

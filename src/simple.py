@@ -12,25 +12,21 @@ with term.hidden_cursor():
                                                border_color=term.orange),
                           inner_border=True)
     gridframe.place(35, 5)
-    button1 = Button(gridframe, width=1, height=1, command=lambda: print("o"), text="o",
+    button1 = Button(gridframe, width=4, height=1, command=lambda: print("o"), text="o",
                      style=RectangleStyle(bg_color=term.on_red),
                      selected_style=RectangleStyle(bg_color=term.on_blue))
-    button1.grid(1, 1, rowspan=1, columnspan=2)
-    button2 = Button(gridframe, width=1, height=1, command=lambda: print("o"), text="o",
+    button1.grid(1, 0, rowspan=2, columnspan=1)
+    button2 = Button(gridframe, width=6, height=2, command=lambda: print("o"), text="o",
                      style=RectangleStyle(bg_color=term.on_red),
                      selected_style=RectangleStyle(bg_color=term.on_blue))
-    button2.grid(1, 2, rowspan=1, columnspan=2)
-    # button3 = Button(gridframe, width=1, height=1, command=lambda: print("o"), text="o",
-    #                  style=RectangleStyle(bg_color=term.on_red),
-    #                  selected_style=RectangleStyle(bg_color=term.on_blue))
-    # button3.grid(0, 2)
-    # button4 = Button(gridframe, width=1, height=1, command=lambda: print("o"), text="o",
-    #                  style=RectangleStyle(bg_color=term.on_red),
-    #                  selected_style=RectangleStyle(bg_color=term.on_blue))
-    # button4.grid(2, 0)
+    button2.grid(2, 1, rowspan=1, columnspan=2)
+    button3 = Button(gridframe, width=8, height=3, command=lambda: print("o"), text="o",
+                     style=RectangleStyle(bg_color=term.on_red),
+                     selected_style=RectangleStyle(bg_color=term.on_blue))
+    button3.grid(3, 2, rowspan=1, columnspan=1)
 
     window.clear()
     window.draw()
     window.loop()
-    # window.clear()
     window.flush()
+    window.clear()
