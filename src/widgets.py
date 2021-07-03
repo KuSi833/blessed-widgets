@@ -160,25 +160,24 @@ class Visible(Element):  # Frame vs Label
         """
         if style is None:
             style = RectangleStyle()
-        if isinstance(self.parent, Window):  # TODO: Make MainFrame class?
-            parentStyle = RectangleStyle()
-        else:
+        inheritanceStyle = RectangleStyle()
+        if not isinstance(self.parent, Window):  # TODO: Make MainFrame class?
             parentStyle = self.parent.getStyle()
             # Controls which features are inherited
-            if inheritance_vector[0] is False:
-                parentStyle.bg_color = None
-            elif inheritance_vector[1] is False:
-                parentStyle.text_style = None
-            elif inheritance_vector[2] is False:
-                parentStyle.border_color = None
-            elif inheritance_vector[3] is False:
-                parentStyle.border_style = None
+            if inheritance_vector[0]:
+                inheritanceStyle.bg_color = parentStyle.bg_color
+            elif inheritance_vector[1]:
+                inheritanceStyle.text_style = parentStyle.text_style
+            elif inheritance_vector[2]:
+                inheritanceStyle.border_color = parentStyle.border_color
+            elif inheritance_vector[3]:
+                inheritanceStyle.border_style = parentStyle.border_style
 
-        bg_color: Optional[str] = getFirstAssigned([style.bg_color, parentStyle.bg_color],
+        bg_color: Optional[str] = getFirstAssigned([style.bg_color, inheritanceStyle.bg_color],
                                                    default=default_style.bg_color)
-        text_style: Optional[str] = getFirstAssigned([style.text_style, parentStyle.text_style],
+        text_style: Optional[str] = getFirstAssigned([style.text_style, inheritanceStyle.text_style],
                                                      default=default_style.text_style)
-        border_color: Optional[str] = getFirstAssigned([style.border_color, parentStyle.border_color],
+        border_color: Optional[str] = getFirstAssigned([style.border_color, inheritanceStyle.border_color],
                                                        default=default_style.border_color)
         border_style: Optional[BorderStyle] = getFirstAssigned([style.border_style],
                                                                default=default_style.border_style)
