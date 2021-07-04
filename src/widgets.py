@@ -715,7 +715,7 @@ class Window():
                     distance = np.linalg.norm(np.array((delta_x, delta_y)))
 
                     # Calculating weighted distance
-                    weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
+                    weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.10)
 
                     if weighted_distance < min_wighted_distance:
                         min_wighted_distance = weighted_distance
@@ -917,7 +917,7 @@ class Rectangle():
             elif h_align is HAlignment.MIDDLE:
                 text_start_x = self.getEdge(Side.LEFT) + padding[3] + (self.getWidth() // 2) - (len(text) // 2)
             elif h_align is HAlignment.RIGHT:
-                text_start_x = self.getEdge(Side.RIGHT) - padding[1] - max_text_len
+                text_start_x = self.getEdge(Side.RIGHT) - padding[1] - len(text)
             # Vertical
             if v_align is VAlignment.TOP:
                 text_start_y = self.getEdge(Side.BOTTOM) - padding[0]
@@ -1007,7 +1007,7 @@ class Entry(Focusable, HasText):
     def __init__(self, parent: Parent, width: int, height: int,
                  default_text: Optional[str] = None,
                  style: RectangleStyle = None,
-                 padding: List[int] = [1] * 4,
+                 padding: List[int] = [0] * 4,
                  h_align: HAlignment = HAlignment.LEFT,
                  v_align: VAlignment = VAlignment.TOP,
                  selected_style: RectangleStyle = None,
@@ -1132,7 +1132,7 @@ class Entry(Focusable, HasText):
 class DropdownMenu(Focusable, HasText):
     def __init__(
             self, parent: Parent, width: int, height: int,
-            text: Optional[str],
+            text: Optional[str], auto_redraw: bool = True,
             style: Optional[RectangleStyle] = None,
             padding: List[int] = [0] * 4,
             h_align: HAlignment = HAlignment.LEFT,
@@ -1157,6 +1157,7 @@ class DropdownMenu(Focusable, HasText):
         self.itemButtons: List[Button] = [self.mainButton]
         self.active_index = 0
         self.active_item = self.mainButton
+        self.auto_redraw = auto_redraw
 
     def place(self, x: int, y: int) -> None:
         self.itemFrame.height = self.getItemHeight() * len(self.itemButtons)
@@ -1178,7 +1179,8 @@ class DropdownMenu(Focusable, HasText):
         self.active_item = self.itemButtons[self.active_index]
         self.active_item.toggleSelected()
         self.itemFrame.deactivate()
-        self.parent.draw()
+        if self.auto_redraw:
+            self.getWindow().draw()
         return super().unfocus()
 
     def click(self) -> Response:
