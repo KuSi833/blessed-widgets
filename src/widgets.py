@@ -660,7 +660,7 @@ class Window():
 
     def getExtremeElement(self, direction: Direction) -> Optional[Interactable]:
         extreme_element: Optional[Interactable] = None
-        if direction is Direction.UP:
+        if direction is Direction.DOWN:
             highest_y = 0
             for element in self.getAllInteractive():
                 if element.getBorder().getEdge(Side.TOP) >= highest_y:
@@ -672,7 +672,7 @@ class Window():
                 if element.getBorder().getEdge(Side.RIGHT) >= highest_x:
                     highest_x = element.getBorder().getEdge(Side.RIGHT)
                     extreme_element = element
-        elif direction is Direction.DOWN:
+        elif direction is Direction.UP:
             lowest_y = float('inf')
             for element in self.getAllInteractive():
                 if element.getBorder().getEdge(Side.BOTTOM) <= lowest_y:
@@ -687,34 +687,63 @@ class Window():
 
         return extreme_element
 
+    def calculateWeightedDistance(self, p1: Point, p2: Point, direction: Direction) -> float:
+        delta_x = p1.x - p2.x
+        delta_y = p1.y - p2.y
+
+        argument = degrees(atan2(delta_y, delta_x))
+        delta_angle = abs(direction.value - argument) 
+
+        if delta_angle > 180:
+            delta_angle = 360 - delta_angle
+
+        if delta_angle > MAX_ANGLE:
+            return float('inf')
+
+        distance = np.linalg.norm(np.array((delta_x, delta_y)))
+        return distance / gaussian(x=delta_angle / 90, mean=0, std=0.25)
+
+    def getActivePoint(self, element: Element, direction: Direction) -> Point:
+        border = element.getBorder()
+        if direction is Direction.UP:
+            return Point(border.getCenter().x, border.getEdge(Side.TOP))
+        elif direction is Direction.DOWN:
+            return Point(border.getCenter().x, border.getEdge(Side.BOTTOM))
+        elif direction is Direction.RIGHT:
+            return Point(border.getEdge(Side.RIGHT), border.getCenter().y)
+        elif direction is Direction.LEFT:
+            return Point(border.getEdge(Side.LEFT), border.getCenter().y)
+
+    def getCandidatePoints(self, element: Element, direction: Direction) -> List[Point]:
+        border = element.getBorder()
+        points = []
+        if direction is Direction.UP:
+            for x in range(border.getEdge(Side.LEFT), border.getEdge(Side.RIGHT) + 1):
+                points.append(Point(x, border.getEdge(Side.BOTTOM)))
+        elif direction is Direction.DOWN:
+            for x in range(border.getEdge(Side.LEFT), border.getEdge(Side.RIGHT) + 1):
+                points.append(Point(x, border.getEdge(Side.TOP)))
+        elif direction is Direction.RIGHT:
+            for y in range(border.getEdge(Side.TOP), border.getEdge(Side.BOTTOM) + 1):
+                points.append(Point(border.getEdge(Side.RIGHT), y))
+        elif direction is Direction.LEFT:
+            for y in range(border.getEdge(Side.TOP), border.getEdge(Side.BOTTOM) + 1):
+                points.append(Point(border.getEdge(Side.LEFT), y))
+        return points
+
     def findElement(self, direction: Direction) -> Optional[Interactable]:
         if self.active_element is None:
             raise TypeError("Unable to find element if active_element isn't set")
         else:
             assert(isinstance(self.active_element, Element))
-            active_element_center = self.active_element.getBorder().getCenter()
+            active_point = self.getActivePoint(self.active_element, direction)
             min_wighted_distance = float('inf')
             closest_element: Optional[Interactable] = None
             for element in self.getAllInteractive():
                 if element != self.active_element and element.isActive():
-                    element_center = element.getBorder().getCenter()
-
-                    delta_x = element_center.x - active_element_center.x
-                    delta_y = element_center.y - active_element_center.y
-
-                    argument = degrees(atan2(delta_y, delta_x))
-                    delta_angle = abs(direction.value - argument)
-                    if delta_angle > 180:
-                        delta_angle = 360 - delta_angle
-
-                    if delta_angle > MAX_ANGLE:
-                        continue
-
-                    distance = np.linalg.norm(np.array((delta_x, delta_y)))
-
-                    # Calculating weighted distance
-                    weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
-
+                    points = self.getCandidatePoints(element, direction)
+                    for point in points:
+                        weighted_distance = self.calculateWeightedDistance(active_point, point, direction)
                     if weighted_distance < min_wighted_distance:
                         min_wighted_distance = weighted_distance
                         closest_element = element
