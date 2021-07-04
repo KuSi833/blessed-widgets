@@ -4,7 +4,7 @@ from exceptions import (
     BorderOutOfBounds, CellOutOfBounds, ElementNotPlaced, InvalidAttributes, InvalidElement,
     InvalidLayout, PaddingOverflow, RectangleTooSmall)
 import numpy as np
-
+from math import degrees, atan2
 from typing import Callable, Text, Tuple, Union, List, Optional
 from abc import ABC, abstractclassmethod
 from helpers import gaussian, getFirstAssigned
@@ -701,13 +701,11 @@ class Window():
 
                     delta_x = element_center.x - active_element_center.x
                     delta_y = element_center.y - active_element_center.y
-                    c = complex(delta_x, delta_y)
 
-                    argument = np.angle(c, deg=True)
-                    if argument < 0:
-                        argument += 360
-
+                    argument = degrees(atan2(delta_y, delta_x))
                     delta_angle = abs(direction.value - argument)
+                    if delta_angle > 180:
+                        delta_angle = 360 - delta_angle
 
                     if delta_angle > MAX_ANGLE:
                         continue
@@ -715,7 +713,7 @@ class Window():
                     distance = np.linalg.norm(np.array((delta_x, delta_y)))
 
                     # Calculating weighted distance
-                    weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.10)
+                    weighted_distance = distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
 
                     if weighted_distance < min_wighted_distance:
                         min_wighted_distance = weighted_distance
