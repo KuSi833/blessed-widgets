@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List
 from widgets import AbsoluteFrame, GridFrame, Label, DropdownMenu, OptionMenu, Window, Button, RectangleStyle, Entry
 from blessed import Terminal
-from constants import BorderStyle, HAlignment, VAlignment
+from constants import BorderStyle, Direction, HAlignment, VAlignment
 
 term = Terminal()
 with term.hidden_cursor():
@@ -50,6 +50,10 @@ with term.hidden_cursor():
                          style=RectangleStyle(bg_color=term.on_darkgreen, text_style=term.white),
                          selected_style=selected_style)
     enterButton.place(x=26, y=0)
+    # Navigation Override
+    stageOptions.overrideNavigation(Direction.RIGHT, disciplineOptions)
+    disciplineOptions.overrideNavigation(Direction.LEFT, stageOptions)
+    levelOptions.overrideNavigation(Direction.DOWN, stageOptions)
 
     # Main Content
     frame1 = AbsoluteFrame(mainframe, 33, 13, style=RectangleStyle(bg_color=term.on_gray22))

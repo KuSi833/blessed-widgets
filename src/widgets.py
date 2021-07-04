@@ -201,6 +201,18 @@ class Interactable(Visible):
         self.setSelectedStyle(selected_style)
         self.setClickedStyle(clicked_style)
         self.setDisabledStyle(disabled_style)
+        self.navigation_override = {
+            Direction.UP: None,
+            Direction.DOWN: None,
+            Direction.LEFT: None,
+            Direction.RIGHT: None
+        }
+
+    def overrideNavigation(self, direction: Direction, element: Element):
+        self.navigation_override[direction] = element
+
+    def navigate(self, direction: Direction) -> Optional[Element]:
+        return self.navigation_override[direction]
 
     def setSelectedStyle(self, selected_style: Optional[RectangleStyle]) -> None:
         self.selected_style = self.constructDefaultStyle(selected_style)
@@ -692,7 +704,7 @@ class Window():
         delta_y = p1.y - p2.y
 
         argument = degrees(atan2(delta_y, delta_x))
-        delta_angle = abs(direction.value - argument) 
+        delta_angle = abs(direction.value - argument)
 
         if delta_angle > 180:
             delta_angle = 360 - delta_angle
@@ -701,49 +713,19 @@ class Window():
             return float('inf')
 
         distance = np.linalg.norm(np.array((delta_x, delta_y)))
-        return distance / gaussian(x=delta_angle / 90, mean=0, std=0.25)
-
-    def getActivePoint(self, element: Element, direction: Direction) -> Point:
-        border = element.getBorder()
-        if direction is Direction.UP:
-            return Point(border.getCenter().x, border.getEdge(Side.TOP))
-        elif direction is Direction.DOWN:
-            return Point(border.getCenter().x, border.getEdge(Side.BOTTOM))
-        elif direction is Direction.RIGHT:
-            return Point(border.getEdge(Side.RIGHT), border.getCenter().y)
-        elif direction is Direction.LEFT:
-            return Point(border.getEdge(Side.LEFT), border.getCenter().y)
-
-    def getCandidatePoints(self, element: Element, direction: Direction) -> List[Point]:
-        border = element.getBorder()
-        points = []
-        if direction is Direction.UP:
-            for x in range(border.getEdge(Side.LEFT), border.getEdge(Side.RIGHT) + 1):
-                points.append(Point(x, border.getEdge(Side.BOTTOM)))
-        elif direction is Direction.DOWN:
-            for x in range(border.getEdge(Side.LEFT), border.getEdge(Side.RIGHT) + 1):
-                points.append(Point(x, border.getEdge(Side.TOP)))
-        elif direction is Direction.RIGHT:
-            for y in range(border.getEdge(Side.TOP), border.getEdge(Side.BOTTOM) + 1):
-                points.append(Point(border.getEdge(Side.RIGHT), y))
-        elif direction is Direction.LEFT:
-            for y in range(border.getEdge(Side.TOP), border.getEdge(Side.BOTTOM) + 1):
-                points.append(Point(border.getEdge(Side.LEFT), y))
-        return points
+        return distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
 
     def findElement(self, direction: Direction) -> Optional[Interactable]:
         if self.active_element is None:
             raise TypeError("Unable to find element if active_element isn't set")
         else:
             assert(isinstance(self.active_element, Element))
-            active_point = self.getActivePoint(self.active_element, direction)
             min_wighted_distance = float('inf')
             closest_element: Optional[Interactable] = None
             for element in self.getAllInteractive():
                 if element != self.active_element and element.isActive():
-                    points = self.getCandidatePoints(element, direction)
-                    for point in points:
-                        weighted_distance = self.calculateWeightedDistance(active_point, point, direction)
+                    weighted_distance = self.calculateWeightedDistance(self.active_element.getBorder().getCenter(),
+                                                                       element.getBorder().getCenter(), direction)
                     if weighted_distance < min_wighted_distance:
                         min_wighted_distance = weighted_distance
                         closest_element = element
@@ -806,7 +788,9 @@ class Window():
                     if direction:  # If a key is pressed which gives direction
                         # If a direction is given the active element couldn't have been set to None
                         assert(self.active_element is not None)
-                        next_element = self.findElement(direction)
+                        next_element = self.active_element.navigate(direction)
+                        if not next_element:
+                            next_element = self.findElement(direction)
                         if next_element:  # If a good next element is found
                             self.active_element.toggleSelected()
                             self.active_element = next_element
