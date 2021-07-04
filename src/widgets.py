@@ -111,7 +111,7 @@ class Element(ABC):
         else:
             command += self.getWindow().term.normal
         # Remove after MainFrame solution
-        for row in range(self.getBorder().getEdge(Side.BOTTOM), self.getBorder().getEdge(Side.TOP) + 1):
+        for row in range(self.getBorder().getEdge(Side.TOP), self.getBorder().getEdge(Side.BOTTOM) + 1):
             command += self.getWindow().moveXY(Point(self.getBorder().getEdge(Side.LEFT), row))
             command += " " * self.getBorder().getWidth()
         print(command)
@@ -166,11 +166,11 @@ class Visible(Element):  # Frame vs Label
             # Controls which features are inherited
             if inheritance_vector[0]:
                 inheritanceStyle.bg_color = parentStyle.bg_color
-            elif inheritance_vector[1]:
+            if inheritance_vector[1]:
                 inheritanceStyle.text_style = parentStyle.text_style
-            elif inheritance_vector[2]:
+            if inheritance_vector[2]:
                 inheritanceStyle.border_color = parentStyle.border_color
-            elif inheritance_vector[3]:
+            if inheritance_vector[3]:
                 inheritanceStyle.border_style = parentStyle.border_style
 
         bg_color: Optional[str] = getFirstAssigned([style.bg_color, inheritanceStyle.bg_color],
@@ -304,7 +304,7 @@ class Frame(Visible):
 
     def getAnchor(self) -> Point:
         self.raiseIfNotPlaced()
-        return self.getBorder().corners["bl"]
+        return self.getBorder().corners["tl"]
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None) -> RectangleStyle:
         return Interactable.constructDefaultStyleTemplate(self, style=style,
@@ -366,7 +366,7 @@ class AbsoluteFrame(Frame):
     def placeElement(self, element: Element, x: int, y: int) -> Rectangle:
         border = Rectangle(self.getAnchor() + Point(x, y),
                            self.getAnchor() + Point(x, y) + Point(element.width, element.height - 1))
-        self.checkOutOfBounds(border, element)
+        # self.checkOutOfBounds(border, element)
         return border
 
     def draw(self) -> None:
@@ -436,7 +436,7 @@ class GridFrame(Frame):
     def placeElement(self, element: Element, padx: int, pady: int, row: int, column: int,
                      rowspan: int = 1, columnspan: int = 1) -> Rectangle:
         self.assignCells(element, row, column, rowspan, columnspan)
-        self.raiseIfBorderOutOfBounds(element, padx, pady, row, column, rowspan, columnspan)
+        # self.raiseIfBorderOutOfBounds(element, padx, pady, row, column, rowspan, columnspan)
         border = Rectangle(
             self.getAnchor() + Point(
                 sum(self.widths[:column]) + padx,
@@ -453,7 +453,7 @@ class GridFrame(Frame):
             border.p1 = border.p1 + Point(column, row)
             border.p2 = border.p2 + Point(column, row)
             border.updateCorners()
-        self.checkOutOfBounds(border, element)
+        # self.checkOutOfBounds(border, element)
         return border
 
     def setRows(self, rows: int) -> None:
@@ -531,19 +531,20 @@ class GridFrame(Frame):
             for y, height in enumerate(self.heights):
                 for slice in range(height + 1):
                     command += window.moveXY(Point(border.getEdge(Side.LEFT),
-                                                   border.getEdge(Side.BOTTOM) + sum(self.heights[:y]) + y + slice))
+                                                   border.getEdge(Side.TOP) + sum(self.heights[:y]) + y + slice))
                     if y == 0 and slice == 0:
-                        command += tr
+                        command += br
                         for x, width in enumerate(self.widths):
+                            command += lr * width
                             if x == len(self.widths) - 1:
-                                command += lr * width + tl
+                                command += bl
                             else:
-                                command += lr * width
                                 if self.compareCells(x, y, x + 1, y):
                                     command += lr
                                 else:
-                                    command += tlr
+                                    command += blr
                     elif slice == 0 and y != 0:
+                        x = 0
                         if self.compareCells(x, y, x, y - 1):
                             command += tb
                         else:
@@ -559,8 +560,8 @@ class GridFrame(Frame):
                                 else:
                                     command += tbl
                             else:
-                                top = not self.compareCells(x, y, x + 1, y)
-                                bot = not self.compareCells(x, y - 1, x + 1, y - 1)
+                                bot = not self.compareCells(x, y, x + 1, y)
+                                top = not self.compareCells(x, y - 1, x + 1, y - 1)
                                 left = not self.compareCells(x, y - 1, x, y)
                                 right = not self.compareCells(x + 1, y - 1, x + 1, y)
                                 if not top and not bot and not left and not right:
@@ -599,17 +600,17 @@ class GridFrame(Frame):
                                     command += tb
                         command += tb
                 command += window.moveXY(Point(border.getEdge(Side.LEFT),
-                                               border.getEdge(Side.BOTTOM) + sum(self.heights) + y + 1))
-                command += br
+                                               border.getEdge(Side.TOP) + sum(self.heights) + y + 1))
+                command += tr
                 for x, width in enumerate(self.widths):
-                    command += lr * width
                     if x == len(self.widths) - 1:
-                        command += bl
+                        command += lr * width + tl
                     else:
+                        command += lr * width
                         if self.compareCells(x, y, x + 1, y):
                             command += lr
                         else:
-                            command += blr
+                            command += tlr
 
         print(command)
         window.flush()
@@ -641,9 +642,7 @@ class Window():
         self.clear()
         self.mainframe.draw()
 
-    def moveXY(self, p: Point, invert_y: bool = True) -> str:  # TODO issue 17
-        if invert_y:
-            p.y = self.term.height - p.y - 1
+    def moveXY(self, p: Point) -> str:  # TODO issue 17
         return self.term.move_xy(p.x, p.y)
 
     def clear(self) -> None:
@@ -829,10 +828,10 @@ class Rectangle():
 
     def updateCorners(self) -> None:
         self.corners = {
-            "tl": Point(min(self.p1.x, self.p2.x), max(self.p1.y, self.p2.y)),
-            "tr": Point(max(self.p1.x, self.p2.x), max(self.p1.y, self.p2.y)),
-            "bl": Point(min(self.p1.x, self.p2.x), min(self.p1.y, self.p2.y)),
-            "br": Point(max(self.p1.x, self.p2.x), min(self.p1.y, self.p2.y))
+            "tl": Point(min(self.p1.x, self.p2.x), min(self.p1.y, self.p2.y)),
+            "tr": Point(max(self.p1.x, self.p2.x), min(self.p1.y, self.p2.y)),
+            "bl": Point(min(self.p1.x, self.p2.x), max(self.p1.y, self.p2.y)),
+            "br": Point(max(self.p1.x, self.p2.x), max(self.p1.y, self.p2.y))
         }
 
     def getEdge(self, side: Side) -> int:
@@ -849,7 +848,7 @@ class Rectangle():
         return self.getEdge(Side.RIGHT) - self.getEdge(Side.LEFT)
 
     def getHeight(self) -> int:
-        return self.getEdge(Side.TOP) - self.getEdge(Side.BOTTOM)
+        return self.getEdge(Side.BOTTOM) - self.getEdge(Side.TOP)
 
     def getMiddleX(self) -> int:
         return self.getEdge(Side.LEFT) + self.getWidth() // 2
@@ -870,7 +869,7 @@ class Rectangle():
             else:
                 if style.border_color:
                     command += style.border_color
-                for row in range(self.getEdge(Side.BOTTOM), self.getEdge(Side.TOP) + 1):
+                for row in range(self.getEdge(Side.TOP), self.getEdge(Side.BOTTOM) + 1):
                     command += window.moveXY(Point(self.getEdge(Side.LEFT), row))
                     if row == self.getEdge(Side.BOTTOM):
                         if style.border_style is BorderStyle.SINGLE:
@@ -890,7 +889,7 @@ class Rectangle():
 
         else:
             if style.bg_color:
-                for row in range(self.getEdge(Side.BOTTOM), self.getEdge(Side.TOP) + 1):
+                for row in range(self.getEdge(Side.TOP), self.getEdge(Side.BOTTOM) + 1):
                     command += window.moveXY(Point(self.getEdge(Side.LEFT), row))
                     command += " " * self.getWidth()
 
@@ -921,11 +920,11 @@ class Rectangle():
                 text_start_x = self.getEdge(Side.RIGHT) - padding[1] - max_text_len
             # Vertical
             if v_align is VAlignment.TOP:
-                text_start_y = self.getEdge(Side.TOP) - padding[0]
+                text_start_y = self.getEdge(Side.BOTTOM) - padding[0]
             elif v_align is VAlignment.MIDDLE:
-                text_start_y = self.getEdge(Side.TOP) - padding[0] - (self.getHeight() // 2)
+                text_start_y = self.getEdge(Side.BOTTOM) - padding[0] - (self.getHeight() // 2)
             elif v_align is VAlignment.BOTTOM:
-                text_start_y = self.getEdge(Side.BOTTOM) + padding[2]
+                text_start_y = self.getEdge(Side.TOP) + padding[2]
 
             command += window.moveXY(Point(text_start_x, text_start_y))
             command += text
@@ -1161,11 +1160,11 @@ class DropdownMenu(Focusable, HasText):
 
     def place(self, x: int, y: int) -> None:
         self.itemFrame.height = self.getItemHeight() * len(self.itemButtons)
-        self.itemFrame.place(x, y - self.getItemHeight() * (len(self.itemButtons) - 1))
-        self.mainButton.place(0, len(self.itemButtons) - 1)
+        self.itemFrame.place(x, y)
+        self.mainButton.place(0, 0)
         self.border = self.mainButton.getBorder()
         for i, itemButton in enumerate(self.itemButtons):
-            itemButton.place(0, (len(self.itemButtons) - 1) - i * self.getItemHeight())
+            itemButton.place(0, i * self.getItemHeight())
         self.activate()
         self.itemFrame.deactivate()
 

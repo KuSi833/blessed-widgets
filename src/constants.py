@@ -44,9 +44,9 @@ class WindowState(Enum):
 
 @unique
 class Direction(Enum):
-    UP = 90
+    DOWN = 90
     LEFT = 180
-    DOWN = 270
+    UP = 270
     RIGHT = 0
 
 
