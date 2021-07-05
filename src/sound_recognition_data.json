@@ -1,0 +1,11 @@
+{
+    "Beginner": {
+        "1": {
+            "SSR": ["A", "D", "E", "D", "A"]
+        },
+        "2": {
+            "CQR": ["maj", "min", "maj", "maj", "maj", "min"],
+            "SSR": ["Am", "E", "Dm", "A", "D"]
+        }
+    }
+}

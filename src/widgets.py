@@ -56,7 +56,8 @@ class Element(ABC):
         if not isinstance(self.parent, GridFrame):
             raise InvalidLayout("Frame is not of type GridFrame")
         assert(isinstance(self.parent, GridFrame))
-        self.border = self.parent.placeElement(element=self, padx=padx, pady=pady, row=row, column=column,
+        self.border = self.parent.placeElement(element=self,
+                                               padx=padx, pady=pady, row=row, column=column,
                                                rowspan=rowspan, columnspan=columnspan)
         self.activate()
 
@@ -115,6 +116,10 @@ class Element(ABC):
             command += self.getWindow().moveXY(Point(self.getBorder().getEdge(Side.LEFT), row))
             command += " " * self.getBorder().getWidth()
         print(command)
+
+    def remove(self) -> None:
+        self.deactivate()
+        self.parent.removeElement(self)
 
 
 class HasText(ABC):
@@ -350,6 +355,9 @@ class Frame(Visible):
         # if self.checkOutOfBounds(element):
         #     raise BorderOutOfBounds("Child coordinates are out of bounds of the parent")
         self.elements.append(element)
+
+    def removeElement(self, element: Element) -> None:
+        self.elements.remove(element)
 
     def addElements(self, *elements: Element) -> None:
         for element in elements:
@@ -646,6 +654,21 @@ class Window():
         self.active_element: Optional[Interactable] = None
         AbsoluteFrame(self, self.term.width, self.term.height)
         self.mainframe.activate()
+        self.hotkeys: dict[str, Callable] = {}
+
+    def bind(self, val: str, command: Callable) -> None:
+        self.hotkeys[val] = command
+
+    def checkBindings(self, val: str) -> Response:
+        if val.is_sequence:
+            val = val.name
+        else:
+            val = val.lower()
+        for hotkey in self.hotkeys:
+            if hotkey == val:
+                self.hotkeys[val]()
+                return Response.COMPLETE
+        return Response.CONTINUE
 
     def getWindow(self) -> Window:
         return self
@@ -713,7 +736,7 @@ class Window():
             return float('inf')
 
         distance = np.linalg.norm(np.array((delta_x, delta_y)))
-        return distance / gaussian(x=delta_angle / 90, mean=0, std=0.35)
+        return distance / gaussian(x=delta_angle / 90, mean=0, std=0.45)
 
     def findElement(self, direction: Direction) -> Optional[Interactable]:
         if self.active_element is None:
@@ -747,6 +770,9 @@ class Window():
             if self.window_state is WindowState.VIEW:
                 # Active element can't be set if WindowState.VIEW
                 assert(self.active_element is None)
+                res = self.checkBindings(val)
+                if res is Response.COMPLETE:
+                    return Response.COMPLETE
                 if val.is_sequence:
                     if val.name == "KEY_UP":
                         self.active_element = self.getExtremeElement(Direction.UP)
@@ -766,6 +792,9 @@ class Window():
             elif self.window_state is WindowState.SELECTION:
                 # Active element must be set if WindowState.SELECTION
                 assert(isinstance(self.active_element, Interactable))
+                res = self.checkBindings(val)
+                if res is Response.COMPLETE:
+                    return Response.COMPLETE
                 direction = None
                 next_element = None
                 if val.is_sequence:
