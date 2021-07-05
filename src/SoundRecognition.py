@@ -63,65 +63,37 @@ class Application(Window):
         self.disciplineOptions.overrideNavigation(Direction.LEFT, self.stageOptions)
         self.levelOptions.overrideNavigation(Direction.DOWN, self.stageOptions)
 
-        # Main Content
-        self.frame1 = AbsoluteFrame(self.baseframe, 33, 13, style=RectangleStyle(bg_color=term.on_gray22))
-        self.frame1.place(3, 6)
-        self.table = GridFrame(self.frame1, widths=[3, 6], heights=[1, 1, 1, 1, 1],
-                               style=RectangleStyle(bg_color=term.on_gray14,
-                                                    border_style=BorderStyle.SINGLE,
-                                                    border_color=term.orange),
-                               inner_border=True)
-        self.table.place(2, 1)
-        self.table2 = GridFrame(self.frame1, widths=[3, 6], heights=[1, 1, 1, 1, 1],
-                                style=RectangleStyle(bg_color=term.on_gray14,
-                                                     border_style=BorderStyle.SINGLE,
-                                                     border_color=term.orange),
-                                inner_border=True)
-        self.table2.place(19, 1)
-
-        self.labels: List[Label] = []
-        self.entries: List[Entry] = []
-        for i in range(5):
-            label = Label(self.table, width=3, height=1, text=str(i + 1) + ".", h_align=HAlignment.RIGHT,
-                          style=RectangleStyle(text_style=term.white))
-            label.grid(0, i)
-            self.labels.append(label)
-            entry = Entry(
-                self.table, width=6, height=1, default_text="______",
-                style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white),
-                selected_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),
-                focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),)
-            entry.grid(1, i)
-            self.entries.append(entry)
-        for i in range(5):
-            label = Label(self.table2, width=3, height=1, text=str(i + 6) + ".", h_align=HAlignment.RIGHT,
-                          style=RectangleStyle(text_style=term.white))
-            label.grid(0, i)
-            self.labels.append(label)
-            entry = Entry(
-                self.table2, width=6, height=1, default_text="______",
-                style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white),
-                selected_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),
-                focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),)
-            entry.grid(1, i)
-            self.entries.append(entry)
-
+        # Buttonframe
         self.buttonFrame = AbsoluteFrame(self.baseframe, 34, 1)
         self.buttonFrame.place(1, 20)
-        self.checkButton = Button(self.buttonFrame, width=12, height=1, text="Check", command=lambda: print("lol"),
+        self.checkButton = Button(self.buttonFrame, width=12, height=1, text="Check",
                                   style=RectangleStyle(term.on_darkgreen, term.white),
                                   selected_style=RectangleStyle(bg_color=term.on_white, text_style=term.black))
         self.checkButton.place(4, 0)
-        self.clearButton = Button(self.buttonFrame, width=12, height=1, text="Clear", command=self.table2.remove,
+        self.clearButton = Button(self.buttonFrame, width=12, height=1, text="Clear", command=self.clearEntries,
                                   style=RectangleStyle(term.on_red4, term.white),
                                   selected_style=RectangleStyle(bg_color=term.on_white, text_style=term.black))
         self.clearButton.place(21, 0)
-
         self.enterButton.onClick(self.getAnswers)
+        self.logLabel = Label(self.buttonFrame, width=18, height=1, h_align=HAlignment.MIDDLE,
+                              style=RectangleStyle(bg_color=term.on_gray10))
+        self.logLabel.place(10, 0)
+
+        # Data
         self.getData()
 
         # Key bindings
-        self.bind("c", self.clearButton.command)
+        self.bind("c", self.clearButton.click)
+
+        # Init activations
+        self.clear()
+        self.checkButton.deactivate()
+        self.clearButton.deactivate()
+        self.logLabel.deactivate()
+        self.draw()
+        self.loop()
+        self.clear()
+        self.flush()
 
     def getData(self) -> None:
         with open('F:/Coding/Projects/blessed-widgets/src/sound_recognition_data.json') as file:
@@ -131,20 +103,89 @@ class Application(Window):
         level = self.levelOptions.getValue()
         stage = self.stageOptions.getValue()
         discipline = self.disciplineOptions.getValue()
+        try:
+            self.answers = self.data[level][stage][discipline]
+            self.logLabel.setText("")
+            self.logLabel.deactivate()
+            if discipline == "SSR":
+                self.initSSR(self.answers)
+        except Exception:
+            if self.logLabel.text == "No data found":
+                self.logLabel.setText(".No data found.")
+            else:
+                self.logLabel.setText("No data found")
+            self.logLabel.activate()
+            self.logLabel.draw()
 
-        answers = self.data[level][stage][discipline]
-        if discipline == "SSR":
-            for i, answer in enumerate(answers):
-                self.entries[i].setText(answers[i])
-                self.entries[i].draw()
+    def checkSSR(self) -> None:
+        for i, entry in enumerate(self.entries):
+            entry_text = entry.text.replace(" ", "").lower()
+            answer_text = self.answers[i].replace(" ", "").lower()
+            if entry_text == answer_text:
+                entry.setStyle(RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.green))
+            else:
+                entry.setStyle(RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.red))
+            entry.draw()
+
+    def clearEntries(self) -> None:
+        for entry in self.entries:
+            entry.setText("")
+            entry.draw()
+
+    def initSSR(self, answers: List[str]) -> None:
+        self.ssrFrame = AbsoluteFrame(self.baseframe, 33, 13, style=RectangleStyle(bg_color=term.on_gray22))
+        self.ssrFrame.place(3, 6)
+        self.table = GridFrame(self.ssrFrame, widths=[3, 6], heights=[1, 1, 1, 1, 1],
+                               style=RectangleStyle(bg_color=term.on_gray14,
+                                                    border_style=BorderStyle.SINGLE,
+                                                    border_color=term.orange),
+                               inner_border=True)
+        self.labels: List[Label] = []
+        self.entries: List[Entry] = []
+        if len(answers) == 5:
+            self.table.place(11, 1)
+        elif len(answers) == 10:
+            self.table2.place(19, 1)
+            self.table.place(2, 1)
+        for i in range(5):
+            label = Label(self.table, width=3, height=1, text=str(i + 1) + ".", h_align=HAlignment.RIGHT,
+                          style=RectangleStyle(text_style=term.white))
+            label.grid(0, i)
+            self.labels.append(label)
+            entry = Entry(
+                self.table, width=6, height=1,
+                style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white),
+                selected_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),
+                focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),)
+            entry.grid(1, i)
+            self.entries.append(entry)
+            self.table2 = GridFrame(self.ssrFrame, widths=[3, 6], heights=[1, 1, 1, 1, 1],
+                                    style=RectangleStyle(bg_color=term.on_gray14,
+                                                         border_style=BorderStyle.SINGLE,
+                                                         border_color=term.orange),
+                                    inner_border=True)
+        if len(answers) == 10:
+            for i in range(5):
+                label = Label(self.table2, width=3, height=1, text=str(i + 6) + ".", h_align=HAlignment.RIGHT,
+                              style=RectangleStyle(text_style=term.white))
+                label.grid(0, i)
+                self.labels.append(label)
+                entry = Entry(
+                    self.table2, width=6, height=1, default_text="______",
+                    style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white),
+                    selected_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),
+                    focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),)
+                entry.grid(1, i)
+                self.entries.append(entry)
+        self.ssrFrame.draw()
+        self.checkButton.activate()
+        self.clearButton.activate()
+        self.checkButton.onClick(self.checkSSR)
+        self.logLabel.deactivate()
+        self.buttonFrame.draw()
 
 
 if __name__ == "__main__":
     term = Terminal()
     with term.hidden_cursor():
         app = Application(term)
-        app.clear()
-        app.draw()
-        app.loop()
-        app.clear()
-        app.flush()

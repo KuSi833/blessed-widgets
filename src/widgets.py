@@ -206,17 +206,17 @@ class Interactable(Visible):
         self.setSelectedStyle(selected_style)
         self.setClickedStyle(clicked_style)
         self.setDisabledStyle(disabled_style)
-        self.navigation_override = {
+        self.navigation_override: dict[Direction, Optional[Interactable]] = {
             Direction.UP: None,
             Direction.DOWN: None,
             Direction.LEFT: None,
             Direction.RIGHT: None
         }
 
-    def overrideNavigation(self, direction: Direction, element: Element):
+    def overrideNavigation(self, direction: Direction, element: Interactable):
         self.navigation_override[direction] = element
 
-    def navigate(self, direction: Direction) -> Optional[Element]:
+    def navigate(self, direction: Direction) -> Optional[Interactable]:
         return self.navigation_override[direction]
 
     def setSelectedStyle(self, selected_style: Optional[RectangleStyle]) -> None:
@@ -394,7 +394,7 @@ class AbsoluteFrame(Frame):
         if self.isActive():
             self.getBorder().drawBackground(self.getWindow(), self.getStyle())
             for element in self.elements:
-                if element.isPlaced():
+                if element.isPlaced() and element.isActive():
                     element.draw()
 
 
@@ -643,7 +643,7 @@ class GridFrame(Frame):
             else:
                 self.getBorder().drawBackground(self.getWindow(), self.getStyle())
             for element in self.elements:
-                if element.isPlaced():
+                if element.isPlaced() and element.isActive():
                     element.draw()
 
 
@@ -659,7 +659,7 @@ class Window():
     def bind(self, val: str, command: Callable) -> None:
         self.hotkeys[val] = command
 
-    def checkBindings(self, val: str) -> Response:
+    def checkBindings(self, val) -> Response:
         if val.is_sequence:
             val = val.name
         else:
@@ -762,6 +762,9 @@ class Window():
         self.mainframe = element
         self.mainframe.border = Rectangle(Point(0, 0),
                                           Point(self.term.width, self.term.height))
+
+    def removeElement(self, element: Element) -> None:
+        raise Exception("Not allowed to remove elements from Window") 
 
     def handleKeyEvent(self, val) -> Response:
         if not val:
@@ -1011,7 +1014,7 @@ class Label(Visible, HasText):
 
 class Button(Interactable, HasText):
     def __init__(
-            self, parent: Parent, width: int, height: int, command: Callable,
+            self, parent: Parent, width: int, height: int, command: Optional[Callable] = None,
             style: RectangleStyle = None, text: Optional[str] = None,
             h_align: HAlignment = HAlignment.MIDDLE,
             v_align: VAlignment = VAlignment.MIDDLE,
@@ -1035,12 +1038,13 @@ class Button(Interactable, HasText):
     def draw(self) -> None:
         self.getBorder().draw(self.getWindow(), self.getStyle(), self.text, self.padding, self.h_align, self.v_align)
 
-    def onClick(self, command: Callable) -> None:
+    def onClick(self, command: Optional[Callable]) -> None:
         self.command = command
 
     def click(self) -> Response:
-        self.command()
-        return Response.CONTINUE  # returns no response because it's a button
+        if self.command:
+            return self.command()
+        return Response.CONTINUE
 
 
 class Entry(Focusable, HasText):
@@ -1078,6 +1082,10 @@ class Entry(Focusable, HasText):
                 bg_color=self.getWindow().term.normal, text_style=self.getWindow().term.white,
                 border_color=self.getWindow().term.white, border_style=BorderStyle.SINGLE),
             inheritance_vector=(False, True, True, True))  # Doesn't inherit bg_color
+
+    def setText(self, text: str) -> None:
+        self.text = text
+        self.saved_text = text
 
     def click(self) -> Response:
         self.text = self.saved_text
@@ -1224,6 +1232,7 @@ class DropdownMenu(Focusable, HasText):
         return super().unfocus()
 
     def click(self) -> Response:
+        assert(self.mainButton.command is not None)  # Always declared in init
         return self.mainButton.command()
 
     def selectNext(self) -> None:
@@ -1253,7 +1262,7 @@ class DropdownMenu(Focusable, HasText):
             elif val.name == "KEY_LEFT":
                 pass
             elif val.name == "KEY_ENTER":
-                res = self.active_item.command()
+                res = self.active_item.click()
                 if res:
                     return res
                 return Response.COMPLETE
