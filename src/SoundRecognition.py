@@ -109,7 +109,7 @@ class Application(Window):
             self.logLabel.deactivate()
             if discipline == "SSR":
                 self.initSSR(self.answers)
-        except Exception:
+        except KeyError:
             if self.logLabel.text == "No data found":
                 self.logLabel.setText(".No data found.")
             else:
@@ -122,14 +122,16 @@ class Application(Window):
             entry_text = entry.text.replace(" ", "").lower()
             answer_text = self.answers[i].replace(" ", "").lower()
             if entry_text == answer_text:
-                entry.setStyle(RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.green))
+                entry.setStyle(RectangleStyle(border_style=BorderStyle.NONE,
+                               bg_color=term.on_gray10, text_style=term.green))
             else:
-                entry.setStyle(RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.red))
+                entry.setStyle(RectangleStyle(border_style=BorderStyle.NONE,
+                               bg_color=term.on_gray10, text_style=term.red))
             entry.draw()
 
     def clearEntries(self) -> None:
         for entry in self.entries:
-            entry.setText("")
+            entry.clear()
             entry.draw()
 
     def initSSR(self, answers: List[str]) -> None:
@@ -145,6 +147,11 @@ class Application(Window):
         if len(answers) == 5:
             self.table.place(11, 1)
         elif len(answers) == 10:
+            self.table2 = GridFrame(self.ssrFrame, widths=[3, 6], heights=[1, 1, 1, 1, 1],
+                                    style=RectangleStyle(bg_color=term.on_gray14,
+                                                         border_style=BorderStyle.SINGLE,
+                                                         border_color=term.orange),
+                                    inner_border=True)
             self.table2.place(19, 1)
             self.table.place(2, 1)
         for i in range(5):
@@ -156,14 +163,11 @@ class Application(Window):
                 self.table, width=6, height=1,
                 style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white),
                 selected_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),
-                focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),)
+                focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8))
+            entry.setOnChange(lambda entry=entry: entry.setStyle(RectangleStyle(
+                border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white)))
             entry.grid(1, i)
             self.entries.append(entry)
-            self.table2 = GridFrame(self.ssrFrame, widths=[3, 6], heights=[1, 1, 1, 1, 1],
-                                    style=RectangleStyle(bg_color=term.on_gray14,
-                                                         border_style=BorderStyle.SINGLE,
-                                                         border_color=term.orange),
-                                    inner_border=True)
         if len(answers) == 10:
             for i in range(5):
                 label = Label(self.table2, width=3, height=1, text=str(i + 6) + ".", h_align=HAlignment.RIGHT,
@@ -171,10 +175,13 @@ class Application(Window):
                 label.grid(0, i)
                 self.labels.append(label)
                 entry = Entry(
-                    self.table2, width=6, height=1, default_text="______",
+                    self.table2, width=6, height=1, default_text="",
                     style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white),
                     selected_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),
-                    focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),)
+                    focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8))
+                entry.setOnChange(lambda entry=entry: entry.setStyle(RectangleStyle(
+                    border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white)))
+                entry.grid(1, i)
                 entry.grid(1, i)
                 self.entries.append(entry)
         self.ssrFrame.draw()
@@ -183,6 +190,12 @@ class Application(Window):
         self.checkButton.onClick(self.checkSSR)
         self.logLabel.deactivate()
         self.buttonFrame.draw()
+
+        # Navigation
+        self.stageOptions.overrideNavigation(Direction.DOWN, self.entries[0])
+        self.disciplineOptions.overrideNavigation(Direction.DOWN, self.entries[0])
+        self.checkButton.overrideNavigation(Direction.UP, self.entries[-1])
+        self.clearButton.overrideNavigation(Direction.UP, self.entries[-1])
 
 
 if __name__ == "__main__":

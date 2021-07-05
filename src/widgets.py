@@ -275,11 +275,28 @@ class Focusable(Interactable):
                  selected_style: Optional[RectangleStyle] = None,
                  clicked_style: Optional[RectangleStyle] = None,
                  disabled_style: Optional[RectangleStyle] = None,
-                 focused_style: Optional[RectangleStyle] = None) -> None:
+                 focused_style: Optional[RectangleStyle] = None,
+                 on_focused_command: Optional[Callable] = None,
+                 on_unfocused_command: Optional[Callable] = None,
+                 ) -> None:
         super().__init__(parent, width, height,  # Element
                          style,  # Visible
                          selected_style, clicked_style, disabled_style)  # Interactable
         self.setFocudesStyle(focused_style)
+        self.setOnFocused(on_focused_command)
+        self.setOnUnfocused(on_unfocused_command)
+
+    def setOnFocused(self, command: Optional[Callable]) -> None:
+        "Triggered when entry is focused"
+        self.onFocused = command
+
+    def setOnChange(self, command: Optional[Callable]) -> None:
+        "Triggered when any character gets changed"
+        self.onChange = command
+
+    def setOnUnfocused(self, command: Optional[Callable]) -> None:
+        "Triggered when entry is unfocused"
+        self.onUnfocused = command
 
     @abstractclassmethod
     def handleKeyEvent(self, val) -> Response:
@@ -297,11 +314,15 @@ class Focusable(Interactable):
         return super().getStyle()
 
     def focus(self) -> Response:
+        if self.onFocused:
+            self.onFocused()
         self.state = State.FOCUSED
         self.draw()
         return Response.FOCUSED
 
     def unfocus(self) -> Response:
+        if self.onUnfocused:
+            self.onUnfocused()
         self.state = State.SELECTED
         self.draw()
         return Response.UNFOCUSED
@@ -738,17 +759,40 @@ class Window():
         distance = np.linalg.norm(np.array((delta_x, delta_y)))
         return distance / gaussian(x=delta_angle / 90, mean=0, std=0.45)
 
+    def getActivePoint(self, element: Element, direction: Direction) -> Point:
+        border = element.getBorder()
+        if direction is Direction.UP:
+            return Point(border.getCenter().x, border.getEdge(Side.TOP))
+        elif direction is Direction.DOWN:
+            return Point(border.getCenter().x, border.getEdge(Side.BOTTOM))
+        elif direction is Direction.RIGHT:
+            return Point(border.getEdge(Side.RIGHT), border.getCenter().y)
+        elif direction is Direction.LEFT:
+            return Point(border.getEdge(Side.LEFT), border.getCenter().y)
+
+    def getCandidatePoint(self, element: Element, direction: Direction) -> Point:
+        border = element.getBorder()
+        if direction is Direction.UP:
+            return Point(border.getCenter().x, border.getEdge(Side.BOTTOM))
+        elif direction is Direction.DOWN:
+            return Point(border.getCenter().x, border.getEdge(Side.TOP))
+        elif direction is Direction.RIGHT:
+            return Point(border.getEdge(Side.LEFT), border.getCenter().y)
+        elif direction is Direction.LEFT:
+            return Point(border.getEdge(Side.RIGHT), border.getCenter().y)
+
     def findElement(self, direction: Direction) -> Optional[Interactable]:
         if self.active_element is None:
             raise TypeError("Unable to find element if active_element isn't set")
         else:
             assert(isinstance(self.active_element, Element))
+            active_point = self.getActivePoint(self.active_element, direction)
             min_wighted_distance = float('inf')
             closest_element: Optional[Interactable] = None
             for element in self.getAllInteractive():
                 if element != self.active_element and element.isActive():
-                    weighted_distance = self.calculateWeightedDistance(self.active_element.getBorder().getCenter(),
-                                                                       element.getBorder().getCenter(), direction)
+                    point = self.getCandidatePoint(element, direction)
+                    weighted_distance = self.calculateWeightedDistance(active_point, point, direction)
                     if weighted_distance < min_wighted_distance:
                         min_wighted_distance = weighted_distance
                         closest_element = element
@@ -764,7 +808,7 @@ class Window():
                                           Point(self.term.width, self.term.height))
 
     def removeElement(self, element: Element) -> None:
-        raise Exception("Not allowed to remove elements from Window") 
+        raise Exception("Not allowed to remove elements from Window")
 
     def handleKeyEvent(self, val) -> Response:
         if not val:
@@ -1060,12 +1104,18 @@ class Entry(Focusable, HasText):
                  focused_style: RectangleStyle = None,
                  cursor_style: str = None,
                  cursor_bg_color: str = None,
-                 highlight_color: str = None) -> None:
+                 highlight_color: str = None,
+                 on_focused_command: Optional[Callable] = None,
+                 on_unfocused_command: Optional[Callable] = None,
+                 on_change_command: Optional[Callable] = None,
+                 ) -> None:
         # Assigning text
         Focusable.__init__(self, parent, width, height,  # Element
                            style,  # Visible
                            selected_style, clicked_style, disabled_style,  # Interactable
-                           focused_style)  # Focusable
+                           focused_style,  # Focusable
+                           on_focused_command=on_focused_command,
+                           on_unfocused_command=on_unfocused_command)
         HasText.__init__(self, default_text, padding, h_align, v_align, width, height)
         self.saved_text = ''
         self.state = State.IDLE
@@ -1074,6 +1124,7 @@ class Entry(Focusable, HasText):
         self.cursor_style: str = getFirstAssigned([cursor_style], self.getWindow().term.on_goldenrod1)
         self.cursor_bg_color: str = getFirstAssigned([cursor_bg_color], self.getWindow().term.gray33)
         self.highlight_color: str = getFirstAssigned([highlight_color], self.getWindow().term.on_gray38)
+        self.setOnChange(on_change_command)
 
     def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
         return Interactable.constructDefaultStyleTemplate(
@@ -1083,9 +1134,20 @@ class Entry(Focusable, HasText):
                 border_color=self.getWindow().term.white, border_style=BorderStyle.SINGLE),
             inheritance_vector=(False, True, True, True))  # Doesn't inherit bg_color
 
-    def setText(self, text: str) -> None:
-        self.text = text
-        self.saved_text = text
+    def setText(self, text: Optional[str] = None) -> None:
+        HasText.setText(self, text)
+        self.updateCursor()
+
+    def updateCursor(self) -> None:
+        if self.text is None or self.text == '':
+            self.cursor_pos = 0
+        else:
+            self.cursor_pos = len(self.text)
+
+    def clear(self) -> None:
+        self.text = ''
+        self.saved_text = ''
+        self.updateCursor()
 
     def click(self) -> Response:
         self.text = self.saved_text
@@ -1112,7 +1174,7 @@ class Entry(Focusable, HasText):
                 return Response.COMPLETE
             elif val.name == "KEY_BACKSPACE":
                 if self.cursor_pos > 0:
-                    self.text = self.text[:self.cursor_pos - 1] + self.text[self.cursor_pos:]
+                    self.setText(self.text[:self.cursor_pos - 1] + self.text[self.cursor_pos:])
                     self.cursor_pos = max(self.cursor_pos - 1, 0)
                     self.draw()
                 return Response.COMPLETE
@@ -1125,9 +1187,11 @@ class Entry(Focusable, HasText):
                 self.unfocus()
                 return Response.UNFOCUSED
         elif val:
-            self.text += val
-            self.cursor_pos += 1
-            self.draw()
+            if self.onChange:
+                self.onChange()
+            if len(self.text) < self.getWidth():  # TODO: Support text larger than width
+                self.setText(self.text + val)
+                self.draw()
             return Response.COMPLETE
         else:
             pass
