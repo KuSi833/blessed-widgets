@@ -140,7 +140,6 @@ class Element(ABC):
     def remove(self) -> None:
         self.deactivate()
         self.parent.removeElement(self)
-        self = None
 
 
 class HasText(ABC):
@@ -179,8 +178,7 @@ class Visible(Element):  # Frame vs Label
         self.state = State.IDLE
 
     @abstractclassmethod
-    def constructDefaultStyle(
-            self, style: Optional[BoxStyle]) -> BoxStyle:
+    def constructDefaultStyle(self, style: Optional[BoxStyle]) -> BoxStyle:
         pass
 
     def constructDefaultStyleTemplate(
@@ -225,9 +223,9 @@ class Visible(Element):  # Frame vs Label
         border_style: Optional[BorderStyle] = getFirstAssigned(
             [style.border_style], default=default_style.border_style)
         return BoxStyle(bg_color=bg_color,
-                              text_style=text_style,
-                              border_color=border_color,
-                              border_style=border_style)
+                        text_style=text_style,
+                        border_color=border_color,
+                        border_style=border_style)
 
     def setStyle(self, style: Optional[BoxStyle]) -> None:
         self.style = self.constructDefaultStyle(style)
@@ -264,12 +262,10 @@ class Interactable(Visible):
     def navigate(self, direction: Direction) -> Optional[Interactable]:
         return self.navigation_override[direction]
 
-    def setSelectedStyle(self,
-                         selected_style: Optional[BoxStyle]) -> None:
+    def setSelectedStyle(self, selected_style: Optional[BoxStyle]) -> None:
         self.selected_style = self.constructDefaultStyle(selected_style)
 
-    def setDisabledStyle(self,
-                         disabled_style: Optional[BoxStyle]) -> None:
+    def setDisabledStyle(self, disabled_style: Optional[BoxStyle]) -> None:
         self.disabled_style = self.constructDefaultStyle(disabled_style)
 
     def setClickedStyle(self, clicked_style: Optional[BoxStyle]) -> None:
@@ -406,13 +402,11 @@ class Frame(Visible):
         return self.getBorder().corners["tl"]
 
     def constructDefaultStyle(self,
-                              style: Optional[BoxStyle] = None
-                             ) -> BoxStyle:
+                              style: Optional[BoxStyle] = None) -> BoxStyle:
         return Interactable.constructDefaultStyleTemplate(
             self,
             style=style,
-            default_style=BoxStyle(
-                border_color=self.getWindow().term.white),
+            default_style=BoxStyle(border_color=self.getWindow().term.white),
             inheritance_vector=(True, True, True, True))
 
     def checkOutOfBounds(self, border: Box, element: Element) -> None:
@@ -456,7 +450,7 @@ class Frame(Visible):
 
     def getAllElements(self,
                        element_filter: Optional[Callable] = None
-                      ) -> List[Element]:
+                       ) -> List[Element]:
         elements = []
         for element in self.elements:
             if element.isActive(
@@ -811,7 +805,7 @@ class Window():
 
     def getAllElements(self,
                        element_filter: Optional[Callable] = None
-                      ) -> List[Element]:
+                       ) -> List[Element]:
         return self.mainframe.getAllElements(element_filter)
 
     def getAllInteractive(self):
@@ -914,8 +908,8 @@ class Window():
                 "Only a single element of type AbsoluteFrame can be added to a Window"
             )
         self.mainframe = element
-        self.mainframe.border = Box(
-            Point(0, 0), Point(self.term.width, self.term.height))
+        self.mainframe.border = Box(Point(0, 0),
+                                    Point(self.term.width, self.term.height))
 
     def removeElement(self, element: Element) -> None:
         raise Exception("Not allowed to remove elements from Window")
@@ -1108,8 +1102,8 @@ class Box():
         print(command)
         window.flush()
 
-    def writeText(self, window: Window, style: BoxStyle,
-                  text: Optional[str], padding: List[int], h_align: HAlignment,
+    def writeText(self, window: Window, style: BoxStyle, text: Optional[str],
+                  padding: List[int], h_align: HAlignment,
                   v_align: VAlignment) -> None:
         command = ''
         if text:
@@ -1191,9 +1185,8 @@ class Label(Visible, HasText):
     def constructDefaultStyle(self, style: Optional[BoxStyle] = None):
         return Interactable.constructDefaultStyleTemplate(
             self,
-            default_style=BoxStyle(
-                bg_color=self.getWindow().term.normal,
-                text_style=self.getWindow().term.white),
+            default_style=BoxStyle(bg_color=self.getWindow().term.normal,
+                                   text_style=self.getWindow().term.white),
             style=style,
             inheritance_vector=(True, True, True, True))
 
@@ -1230,14 +1223,12 @@ class Button(Interactable, HasText):
         self.onClick(command)
 
     def constructDefaultStyle(self,
-                              style: Optional[BoxStyle] = None
-                             ) -> BoxStyle:
+                              style: Optional[BoxStyle] = None) -> BoxStyle:
         return Interactable.constructDefaultStyleTemplate(
             self,
             style=style,
-            default_style=BoxStyle(
-                bg_color=self.getWindow().term.on_white,
-                text_style=self.getWindow().term.black),
+            default_style=BoxStyle(bg_color=self.getWindow().term.on_white,
+                                   text_style=self.getWindow().term.black),
             inheritance_vector=(False, True, False,
                                 False))  # Only inherits text style
 
@@ -1311,11 +1302,10 @@ class Entry(Focusable, HasText):
         return Interactable.constructDefaultStyleTemplate(
             self,
             style=style,
-            default_style=BoxStyle(
-                bg_color=self.getWindow().term.normal,
-                text_style=self.getWindow().term.white,
-                border_color=self.getWindow().term.white,
-                border_style=BorderStyle.SINGLE),
+            default_style=BoxStyle(bg_color=self.getWindow().term.normal,
+                                   text_style=self.getWindow().term.white,
+                                   border_color=self.getWindow().term.white,
+                                   border_style=BorderStyle.SINGLE),
             inheritance_vector=(False, True, True,
                                 True))  # Doesn't inherit bg_color
 
@@ -1549,9 +1539,8 @@ class DropdownMenu(Focusable, HasText):
     def constructDefaultStyle(self, style: Optional[BoxStyle] = None):
         return Interactable.constructDefaultStyleTemplate(
             self,
-            default_style=BoxStyle(
-                bg_color=self.getWindow().term.on_white,
-                text_style=self.getWindow().term.black),
+            default_style=BoxStyle(bg_color=self.getWindow().term.on_white,
+                                   text_style=self.getWindow().term.black),
             style=style,
             inheritance_vector=(True, False, False, False))  # Doesn't inherit
 

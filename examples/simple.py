@@ -10,8 +10,8 @@ with term.hidden_cursor():
                           widths=[2, 4, 6, 8],
                           heights=[1, 2, 3],
                           style=BoxStyle(bg_color=term.on_gray14,
-                                               border_style=BorderStyle.SINGLE,
-                                               border_color=term.orange),
+                                         border_style=BorderStyle.SINGLE,
+                                         border_color=term.orange),
                           inner_border=True)
     gridframe.place(35, 5)
     button1 = Button(gridframe,
