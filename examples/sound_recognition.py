@@ -39,12 +39,14 @@ class Application(Window):
         self.selectionFrame.place(x=2, y=2)
         self.selected_style = RectangleStyle(bg_color=term.on_white,
                                              text_style=term.black)
+
         self.levelLabel = Label(self.selectionFrame,
                                 width=6,
                                 height=1,
                                 text="Level: ",
                                 style=RectangleStyle(text_style=term.white))
         self.levelLabel.place(x=1, y=0)
+
         self.levelOptions = OptionMenu(
             self.selectionFrame,
             width=14,
@@ -57,12 +59,14 @@ class Application(Window):
             focused_style=RectangleStyle(bg_color=term.on_skyblue2,
                                          text_style=term.white))
         self.levelOptions.place(x=8, y=0)
+
         self.stageLabel = Label(self.selectionFrame,
                                 width=6,
                                 height=1,
                                 text="Stage: ",
                                 style=RectangleStyle(text_style=term.white))
         self.stageLabel.place(x=1, y=2)
+
         self.stageOptions = OptionMenu(
             self.selectionFrame,
             width=5,
@@ -75,6 +79,7 @@ class Application(Window):
             focused_style=RectangleStyle(bg_color=term.on_purple3,
                                          text_style=term.white))
         self.stageOptions.place(x=8, y=2)
+
         self.disciplineLabel = Label(
             self.selectionFrame,
             width=12,
@@ -82,6 +87,7 @@ class Application(Window):
             text="Discipline: ",
             style=RectangleStyle(text_style=term.white))
         self.disciplineLabel.place(x=17, y=2)
+
         self.disciplineOptions = OptionMenu(
             self.selectionFrame,
             width=5,
@@ -94,6 +100,7 @@ class Application(Window):
             focused_style=RectangleStyle(bg_color=term.on_darkgreen,
                                          text_style=term.white))
         self.disciplineOptions.place(x=29, y=2)
+
         self.enterButton = Button(self.selectionFrame,
                                   width=7,
                                   height=1,
@@ -115,6 +122,7 @@ class Application(Window):
         # Buttonframe
         self.buttonFrame = AbsoluteFrame(self.baseframe, 34, 1)
         self.buttonFrame.place(1, 20)
+
         self.checkButton = Button(
             self.buttonFrame,
             width=12,
@@ -124,6 +132,7 @@ class Application(Window):
             selected_style=RectangleStyle(bg_color=term.on_white,
                                           text_style=term.black))
         self.checkButton.place(4, 0)
+
         self.clearButton = Button(
             self.buttonFrame,
             width=12,
@@ -134,7 +143,9 @@ class Application(Window):
             selected_style=RectangleStyle(bg_color=term.on_white,
                                           text_style=term.black))
         self.clearButton.place(21, 0)
+
         self.enterButton.onClick(self.getAnswers)
+
         self.logLabel = Label(self.buttonFrame,
                               width=18,
                               height=1,
@@ -155,8 +166,6 @@ class Application(Window):
         self.checkButton.deactivate()
         self.clearButton.deactivate()
         self.logLabel.deactivate()
-        # TEMP
-        self.loop()
 
     def getData(self) -> None:
         with open('resources/sound_recognition_data.json') as file:
@@ -215,6 +224,7 @@ class Application(Window):
             height=13,
             style=RectangleStyle(bg_color=term.on_gray22))
         self.frameType1.place(3, 6)
+
         self.table = GridFrame(self.frameType1,
                                widths=[3, 6],
                                heights=[1, 1, 1, 1, 1],
@@ -223,8 +233,10 @@ class Application(Window):
                                    border_style=BorderStyle.SINGLE,
                                    border_color=term.orange),
                                inner_border=True)
+
         self.labels: List[Label] = []
         self.entries: List[Entry] = []
+
         if len(answers) == 5:
             self.table.place(11, 1)
         elif len(answers) == 10:
@@ -238,6 +250,7 @@ class Application(Window):
                                     inner_border=True)
             self.table2.place(19, 1)
             self.table.place(2, 1)
+
         for i in range(5):
             label = Label(self.table,
                           width=3,
@@ -247,6 +260,7 @@ class Application(Window):
                           style=RectangleStyle(text_style=term.white))
             label.grid(0, i)
             self.labels.append(label)
+
             entry = Entry(
                 self.table,
                 width=6,
@@ -264,6 +278,7 @@ class Application(Window):
                                text_style=term.white)))
             entry.grid(1, i)
             self.entries.append(entry)
+
         if len(answers) == 10:
             for i in range(5):
                 label = Label(self.table2,
@@ -274,6 +289,7 @@ class Application(Window):
                               style=RectangleStyle(text_style=term.white))
                 label.grid(0, i)
                 self.labels.append(label)
+
                 entry = Entry(
                     self.table2,
                     width=6,
@@ -292,6 +308,7 @@ class Application(Window):
                                    text_style=term.white)))
                 entry.grid(1, i)
                 self.entries.append(entry)
+
         self.frameType1.draw()
         self.logLabel.deactivate()
         self.checkButton.activate()

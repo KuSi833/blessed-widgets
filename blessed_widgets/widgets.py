@@ -36,7 +36,7 @@ class Point():
 class Element(ABC):
 
     def __init__(self, parent: Parent, width: int, height: int) -> None:
-        self.border: Optional[Rectangle] = None
+        self.border: Optional[Box] = None
         self.parent = parent
         self.parent.addElement(self)
         self.width = width
@@ -79,7 +79,7 @@ class Element(ABC):
     def getWindow(self) -> Window:
         return self.parent.getWindow()
 
-    def getBorder(self) -> Rectangle:
+    def getBorder(self) -> Box:
         if self.border is None:
             raise ElementNotPlaced("Element must be placed before drawing")
         else:
@@ -173,23 +173,23 @@ class Visible(Element):  # Frame vs Label
             parent: Parent,
             width: int,
             height: int,  # Element
-            style: RectangleStyle = None) -> None:  # Visible
+            style: BoxStyle = None) -> None:  # Visible
         super().__init__(parent, width, height)
         self.setStyle(style)
         self.state = State.IDLE
 
     @abstractclassmethod
     def constructDefaultStyle(
-            self, style: Optional[RectangleStyle]) -> RectangleStyle:
+            self, style: Optional[BoxStyle]) -> BoxStyle:
         pass
 
     def constructDefaultStyleTemplate(
         self,
-        default_style: RectangleStyle,
-        style: Optional[RectangleStyle] = None,
+        default_style: BoxStyle,
+        style: Optional[BoxStyle] = None,
         inheritance_vector: Tuple[bool, bool, bool,
                                   bool] = (False, False, False, False)
-    ) -> RectangleStyle:
+    ) -> BoxStyle:
         """
         Constructs default style in the following order of priority in descending order:
         1. Given style
@@ -199,8 +199,8 @@ class Visible(Element):  # Frame vs Label
         inheritence_vector is of form (bg_color, text_style, border_color, border_style)
         """
         if style is None:
-            style = RectangleStyle()
-        inheritanceStyle = RectangleStyle()
+            style = BoxStyle()
+        inheritanceStyle = BoxStyle()
         if not isinstance(self.parent, Window):  # TODO: Make MainFrame class?
             parentStyle = self.parent.getStyle()
             # Controls which features are inherited
@@ -224,15 +224,15 @@ class Visible(Element):  # Frame vs Label
             default=default_style.border_color)
         border_style: Optional[BorderStyle] = getFirstAssigned(
             [style.border_style], default=default_style.border_style)
-        return RectangleStyle(bg_color=bg_color,
+        return BoxStyle(bg_color=bg_color,
                               text_style=text_style,
                               border_color=border_color,
                               border_style=border_style)
 
-    def setStyle(self, style: Optional[RectangleStyle]) -> None:
+    def setStyle(self, style: Optional[BoxStyle]) -> None:
         self.style = self.constructDefaultStyle(style)
 
-    def getStyle(self) -> RectangleStyle:
+    def getStyle(self) -> BoxStyle:
         return self.style
 
 
@@ -243,10 +243,10 @@ class Interactable(Visible):
             parent: Parent,
             width: int,
             height: int,  # Element
-            style: RectangleStyle = None,  # Visible
-            selected_style: RectangleStyle = None,
-            clicked_style: RectangleStyle = None,
-            disabled_style: RectangleStyle = None) -> None:
+            style: BoxStyle = None,  # Visible
+            selected_style: BoxStyle = None,
+            clicked_style: BoxStyle = None,
+            disabled_style: BoxStyle = None) -> None:
         super().__init__(parent, width, height, style)  # Visible
         self.setSelectedStyle(selected_style)
         self.setClickedStyle(clicked_style)
@@ -265,26 +265,26 @@ class Interactable(Visible):
         return self.navigation_override[direction]
 
     def setSelectedStyle(self,
-                         selected_style: Optional[RectangleStyle]) -> None:
+                         selected_style: Optional[BoxStyle]) -> None:
         self.selected_style = self.constructDefaultStyle(selected_style)
 
     def setDisabledStyle(self,
-                         disabled_style: Optional[RectangleStyle]) -> None:
+                         disabled_style: Optional[BoxStyle]) -> None:
         self.disabled_style = self.constructDefaultStyle(disabled_style)
 
-    def setClickedStyle(self, clicked_style: Optional[RectangleStyle]) -> None:
+    def setClickedStyle(self, clicked_style: Optional[BoxStyle]) -> None:
         self.clicked_style = self.constructDefaultStyle(clicked_style)
 
-    def getSelectedStyle(self) -> RectangleStyle:
+    def getSelectedStyle(self) -> BoxStyle:
         return self.selected_style
 
-    def getDisabledStyle(self) -> RectangleStyle:
+    def getDisabledStyle(self) -> BoxStyle:
         return self.disabled_style
 
-    def getClickedStyle(self) -> RectangleStyle:
+    def getClickedStyle(self) -> BoxStyle:
         return self.clicked_style
 
-    def getStyle(self) -> RectangleStyle:
+    def getStyle(self) -> BoxStyle:
         if self.state is State.DISABLED:
             return self.getDisabledStyle()
         elif self.state is State.SELECTED:
@@ -323,11 +323,11 @@ class Focusable(Interactable):
         parent: Parent,
         width: int,
         height: int,  # Element
-        style: Optional[RectangleStyle] = None,  # Visible
-        selected_style: Optional[RectangleStyle] = None,
-        clicked_style: Optional[RectangleStyle] = None,
-        disabled_style: Optional[RectangleStyle] = None,
-        focused_style: Optional[RectangleStyle] = None,
+        style: Optional[BoxStyle] = None,  # Visible
+        selected_style: Optional[BoxStyle] = None,
+        clicked_style: Optional[BoxStyle] = None,
+        disabled_style: Optional[BoxStyle] = None,
+        focused_style: Optional[BoxStyle] = None,
         on_focused_command: Optional[Callable] = None,
         on_unfocused_command: Optional[Callable] = None,
     ) -> None:
@@ -359,13 +359,13 @@ class Focusable(Interactable):
     def handleKeyEvent(self, val) -> Response:
         pass
 
-    def setFocudesStyle(self, focused_style: Optional[RectangleStyle]) -> None:
+    def setFocudesStyle(self, focused_style: Optional[BoxStyle]) -> None:
         self.focused_style = self.constructDefaultStyle(focused_style)
 
-    def getFocusedStyle(self) -> RectangleStyle:
+    def getFocusedStyle(self) -> BoxStyle:
         return self.focused_style
 
-    def getStyle(self) -> RectangleStyle:
+    def getStyle(self) -> BoxStyle:
         if self.state is State.FOCUSED:
             return self.getFocusedStyle()
         return super().getStyle()
@@ -397,7 +397,7 @@ class Frame(Visible):
                  parent: Parent,
                  width: int,
                  height: int,
-                 style: RectangleStyle = None) -> None:
+                 style: BoxStyle = None) -> None:
         super().__init__(parent, width, height, style)
         self.elements: List[Element] = []
 
@@ -406,16 +406,16 @@ class Frame(Visible):
         return self.getBorder().corners["tl"]
 
     def constructDefaultStyle(self,
-                              style: Optional[RectangleStyle] = None
-                             ) -> RectangleStyle:
+                              style: Optional[BoxStyle] = None
+                             ) -> BoxStyle:
         return Interactable.constructDefaultStyleTemplate(
             self,
             style=style,
-            default_style=RectangleStyle(
+            default_style=BoxStyle(
                 border_color=self.getWindow().term.white),
             inheritance_vector=(True, True, True, True))
 
-    def checkOutOfBounds(self, border: Rectangle, element: Element) -> None:
+    def checkOutOfBounds(self, border: Box, element: Element) -> None:
         if border.getEdge(Side.LEFT) < self.getBorder().getEdge(Side.LEFT):
             raise BorderOutOfBounds(
                 f"{type(element).__name__} {str(border)} "
@@ -478,11 +478,11 @@ class AbsoluteFrame(Frame):
                  parent: Parent,
                  width: int,
                  height: int,
-                 style: RectangleStyle = None) -> None:
+                 style: BoxStyle = None) -> None:
         super().__init__(parent, width, height, style=style)
 
-    def placeElement(self, element: Element, x: int, y: int) -> Rectangle:
-        border = Rectangle(
+    def placeElement(self, element: Element, x: int, y: int) -> Box:
+        border = Box(
             self.getAnchor() + Point(x, y),
             self.getAnchor() + Point(x, y) +
             Point(element.width, element.height - 1))
@@ -502,7 +502,7 @@ class GridFrame(Frame):
 
     def __init__(self,
                  parent: Parent,
-                 style: RectangleStyle,
+                 style: BoxStyle,
                  widths: List[int],
                  heights: List[int],
                  inner_border: bool = False) -> None:
@@ -566,10 +566,10 @@ class GridFrame(Frame):
                      row: int,
                      column: int,
                      rowspan: int = 1,
-                     columnspan: int = 1) -> Rectangle:
+                     columnspan: int = 1) -> Box:
         self.assignCells(element, row, column, rowspan, columnspan)
         # self.raiseIfBorderOutOfBounds(element, padx, pady, row, column, rowspan, columnspan)
-        border = Rectangle(
+        border = Box(
             self.getAnchor() + Point(
                 sum(self.widths[:column]) + padx,
                 sum(self.heights[:row]) + pady),
@@ -914,7 +914,7 @@ class Window():
                 "Only a single element of type AbsoluteFrame can be added to a Window"
             )
         self.mainframe = element
-        self.mainframe.border = Rectangle(
+        self.mainframe.border = Box(
             Point(0, 0), Point(self.term.width, self.term.height))
 
     def removeElement(self, element: Element) -> None:
@@ -1016,7 +1016,7 @@ class Window():
 Parent = Union[Frame, Window]
 
 
-class Rectangle():
+class Box():
 
     def __init__(self, p1: Point, p2: Point) -> None:
         self.setP1(p1)
@@ -1065,7 +1065,7 @@ class Rectangle():
     def getCenter(self) -> Point:
         return Point(self.getMiddleX(), self.getMiddleY())
 
-    def drawBackground(self, window: Window, style: RectangleStyle) -> None:
+    def drawBackground(self, window: Window, style: BoxStyle) -> None:
         command = ''
         if style.bg_color:
             command += style.bg_color
@@ -1108,7 +1108,7 @@ class Rectangle():
         print(command)
         window.flush()
 
-    def writeText(self, window: Window, style: RectangleStyle,
+    def writeText(self, window: Window, style: BoxStyle,
                   text: Optional[str], padding: List[int], h_align: HAlignment,
                   v_align: VAlignment) -> None:
         command = ''
@@ -1146,14 +1146,14 @@ class Rectangle():
             print(command)
             window.flush()
 
-    def draw(self, window: Window, style: RectangleStyle, text: Optional[str],
+    def draw(self, window: Window, style: BoxStyle, text: Optional[str],
              padding: List[int], h_align: HAlignment,
              v_align: VAlignment) -> None:
         self.drawBackground(window, style)
         self.writeText(window, style, text, padding, h_align, v_align)
 
 
-class RectangleStyle():
+class BoxStyle():
 
     def __init__(self,
                  bg_color: Optional[str] = None,
@@ -1175,7 +1175,7 @@ class Label(Visible, HasText):
         width: int,
         height: int,
         text: Optional[str] = None,
-        style: RectangleStyle = None,
+        style: BoxStyle = None,
         padding: List[int] = [0] * 4,
         h_align: HAlignment = HAlignment.MIDDLE,
         v_align: VAlignment = VAlignment.MIDDLE,
@@ -1188,10 +1188,10 @@ class Label(Visible, HasText):
             style)  # Visible
         HasText.__init__(self, text, padding, h_align, v_align, width, height)
 
-    def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
+    def constructDefaultStyle(self, style: Optional[BoxStyle] = None):
         return Interactable.constructDefaultStyleTemplate(
             self,
-            default_style=RectangleStyle(
+            default_style=BoxStyle(
                 bg_color=self.getWindow().term.normal,
                 text_style=self.getWindow().term.white),
             style=style,
@@ -1209,14 +1209,14 @@ class Button(Interactable, HasText):
                  width: int,
                  height: int,
                  command: Optional[Callable] = None,
-                 style: RectangleStyle = None,
+                 style: BoxStyle = None,
                  text: Optional[str] = None,
                  h_align: HAlignment = HAlignment.MIDDLE,
                  v_align: VAlignment = VAlignment.MIDDLE,
                  padding: List[int] = [0] * 4,
-                 disabled_style: RectangleStyle = None,
-                 selected_style: RectangleStyle = None,
-                 clicked_style: RectangleStyle = None) -> None:
+                 disabled_style: BoxStyle = None,
+                 selected_style: BoxStyle = None,
+                 clicked_style: BoxStyle = None) -> None:
         Interactable.__init__(
             self,
             parent,
@@ -1230,12 +1230,12 @@ class Button(Interactable, HasText):
         self.onClick(command)
 
     def constructDefaultStyle(self,
-                              style: Optional[RectangleStyle] = None
-                             ) -> RectangleStyle:
+                              style: Optional[BoxStyle] = None
+                             ) -> BoxStyle:
         return Interactable.constructDefaultStyleTemplate(
             self,
             style=style,
-            default_style=RectangleStyle(
+            default_style=BoxStyle(
                 bg_color=self.getWindow().term.on_white,
                 text_style=self.getWindow().term.black),
             inheritance_vector=(False, True, False,
@@ -1262,14 +1262,14 @@ class Entry(Focusable, HasText):
         width: int,
         height: int,
         default_text: Optional[str] = None,
-        style: RectangleStyle = None,
+        style: BoxStyle = None,
         padding: List[int] = [0] * 4,
         h_align: HAlignment = HAlignment.LEFT,
         v_align: VAlignment = VAlignment.TOP,
-        selected_style: RectangleStyle = None,
-        clicked_style: RectangleStyle = None,
-        disabled_style: RectangleStyle = None,
-        focused_style: RectangleStyle = None,
+        selected_style: BoxStyle = None,
+        clicked_style: BoxStyle = None,
+        disabled_style: BoxStyle = None,
+        focused_style: BoxStyle = None,
         cursor_style: str = None,
         cursor_bg_color: str = None,
         highlight_color: str = None,
@@ -1307,11 +1307,11 @@ class Entry(Focusable, HasText):
             self.getWindow().term.on_gray38)
         self.setOnChange(on_change_command)
 
-    def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
+    def constructDefaultStyle(self, style: Optional[BoxStyle] = None):
         return Interactable.constructDefaultStyleTemplate(
             self,
             style=style,
-            default_style=RectangleStyle(
+            default_style=BoxStyle(
                 bg_color=self.getWindow().term.normal,
                 text_style=self.getWindow().term.white,
                 border_color=self.getWindow().term.white,
@@ -1383,7 +1383,7 @@ class Entry(Focusable, HasText):
             pass
         return Response.CONTINUE
 
-    def drawCursor(self, border: Rectangle, window: Window) -> None:
+    def drawCursor(self, border: Box, window: Window) -> None:
         command = ''
         # Cursor style
         command += self.cursor_style
@@ -1439,14 +1439,14 @@ class DropdownMenu(Focusable, HasText):
                  height: int,
                  text: Optional[str],
                  auto_redraw: bool = True,
-                 style: Optional[RectangleStyle] = None,
+                 style: Optional[BoxStyle] = None,
                  padding: List[int] = [0] * 4,
                  h_align: HAlignment = HAlignment.LEFT,
                  v_align: VAlignment = VAlignment.MIDDLE,
-                 selected_style: Optional[RectangleStyle] = None,
-                 clicked_style: Optional[RectangleStyle] = None,
-                 disabled_style: Optional[RectangleStyle] = None,
-                 focused_style: Optional[RectangleStyle] = None) -> None:
+                 selected_style: Optional[BoxStyle] = None,
+                 clicked_style: Optional[BoxStyle] = None,
+                 disabled_style: Optional[BoxStyle] = None,
+                 focused_style: Optional[BoxStyle] = None) -> None:
         Focusable.__init__(
             self,
             parent,
@@ -1546,10 +1546,10 @@ class DropdownMenu(Focusable, HasText):
         else:
             self.select()
 
-    def constructDefaultStyle(self, style: Optional[RectangleStyle] = None):
+    def constructDefaultStyle(self, style: Optional[BoxStyle] = None):
         return Interactable.constructDefaultStyleTemplate(
             self,
-            default_style=RectangleStyle(
+            default_style=BoxStyle(
                 bg_color=self.getWindow().term.on_white,
                 text_style=self.getWindow().term.black),
             style=style,
@@ -1561,13 +1561,13 @@ class DropdownMenu(Focusable, HasText):
     def addItem(self,
                 text: str,
                 command: Callable,
-                style: Optional[RectangleStyle] = None,
+                style: Optional[BoxStyle] = None,
                 padding: Optional[List[int]] = None,
                 h_align: Optional[HAlignment] = None,
                 v_align: Optional[VAlignment] = None,
-                selected_style: Optional[RectangleStyle] = None,
-                clicked_style: Optional[RectangleStyle] = None,
-                disabled_style: Optional[RectangleStyle] = None) -> None:
+                selected_style: Optional[BoxStyle] = None,
+                clicked_style: Optional[BoxStyle] = None,
+                disabled_style: Optional[BoxStyle] = None) -> None:
         # Extend frame to fit option
         # Match mainButton params if none are given
         padding = getFirstAssigned([padding], self.mainButton.padding)
@@ -1606,14 +1606,14 @@ class OptionMenu(DropdownMenu):
                  height: int,
                  default_text=Optional[str],
                  options=List[str],
-                 style: Optional[RectangleStyle] = None,
+                 style: Optional[BoxStyle] = None,
                  padding: List[int] = [0] * 4,
                  h_align: HAlignment = HAlignment.LEFT,
                  v_align: VAlignment = VAlignment.MIDDLE,
-                 selected_style: Optional[RectangleStyle] = None,
-                 clicked_style: Optional[RectangleStyle] = None,
-                 disabled_style: Optional[RectangleStyle] = None,
-                 focused_style: Optional[RectangleStyle] = None) -> None:
+                 selected_style: Optional[BoxStyle] = None,
+                 clicked_style: Optional[BoxStyle] = None,
+                 disabled_style: Optional[BoxStyle] = None,
+                 focused_style: Optional[BoxStyle] = None) -> None:
         super().__init__(parent=parent,
                          width=width,
                          height=height,
@@ -1652,13 +1652,13 @@ class OptionMenu(DropdownMenu):
 
     def addOption(self,
                   text: str,
-                  style: Optional[RectangleStyle] = None,
+                  style: Optional[BoxStyle] = None,
                   padding: Optional[List[int]] = None,
                   h_align: Optional[HAlignment] = None,
                   v_align: Optional[VAlignment] = None,
-                  selected_style: Optional[RectangleStyle] = None,
-                  clicked_style: Optional[RectangleStyle] = None,
-                  disabled_style: Optional[RectangleStyle] = None) -> None:
+                  selected_style: Optional[BoxStyle] = None,
+                  clicked_style: Optional[BoxStyle] = None,
+                  disabled_style: Optional[BoxStyle] = None) -> None:
         if self.mainButton.text is None:
             self.mainButton.text = text
         else:
