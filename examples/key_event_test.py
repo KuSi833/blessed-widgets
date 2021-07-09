@@ -2,7 +2,6 @@ from blessed import Terminal
 
 term = Terminal()
 
-
 print(f"{term.home}{term.black_on_skyblue}{term.clear}")
 print("press 'q' to quit.")
 with term.cbreak(), term.hidden_cursor():
