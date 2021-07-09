@@ -10,7 +10,7 @@ class Application(Window):
     def __init__(self, term: Terminal) -> None:
         super().__init__(term)
         self.baseframe = AbsoluteFrame(self.mainframe, 39, 23,
-                                       style=RectangleStyle(bg_color=term.on_gray14,  text_style=term.orange,
+                                       style=RectangleStyle(bg_color=term.on_gray14, text_style=term.orange,
                                                             border_style=BorderStyle.SINGLE))
         self.baseframe.place(x=15, y=3)
         # Title
