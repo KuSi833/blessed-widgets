@@ -1,7 +1,7 @@
 from __future__ import annotations
-from widgets import AbsoluteFrame, GridFrame, Label, DropdownMenu, OptionMenu, Window, Button, RectangleStyle, Entry
+from blessed_widgets.widgets import AbsoluteFrame, GridFrame, Label, DropdownMenu, OptionMenu, Window, Button, RectangleStyle, Entry
 from blessed import Terminal
-from constants import BorderStyle, HAlignment, VAlignment
+from blessed_widgets.constants import BorderStyle, HAlignment, VAlignment
 
 term = Terminal()
 with term.hidden_cursor():

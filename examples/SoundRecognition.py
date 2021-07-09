@@ -1,16 +1,16 @@
 from __future__ import annotations
 from typing import List
-from widgets import AbsoluteFrame, GridFrame, Label, DropdownMenu, OptionMenu, Window, Button, RectangleStyle, Entry
+from blessed_widgets.widgets import AbsoluteFrame, GridFrame, Label, DropdownMenu, OptionMenu, Window, Button, RectangleStyle, Entry
 from blessed import Terminal
-from constants import BorderStyle, Direction, HAlignment, VAlignment
+from blessed_widgets.constants import BorderStyle, Direction, HAlignment, VAlignment
 import json
 
 
 class Application(Window):
     def __init__(self, term: Terminal) -> None:
         super().__init__(term)
-        self.baseframe = AbsoluteFrame(self.mainframe, 38, 23,
-                                       style=RectangleStyle(bg_color=term.on_gray14, text_style=term.orange,
+        self.baseframe = AbsoluteFrame(self.mainframe, 39, 23,
+                                       style=RectangleStyle(bg_color=term.on_gray14,  text_style=term.orange,
                                                             border_style=BorderStyle.SINGLE))
         self.baseframe.place(x=15, y=3)
         # Title
@@ -85,39 +85,46 @@ class Application(Window):
         # Key bindings
         self.bind("c", self.clearButton.click)
 
+        # Holders
+        self.frameType1 = None
+
         # Init activations
-        self.clear()
         self.checkButton.deactivate()
         self.clearButton.deactivate()
         self.logLabel.deactivate()
-        self.draw()
+        # TEMP
         self.loop()
-        self.clear()
-        self.flush()
 
     def getData(self) -> None:
-        with open('F:/Coding/Projects/blessed-widgets/src/sound_recognition_data.json') as file:
+        with open('resources/sound_recognition_data.json') as file:
             self.data = json.load(file)
 
     def getAnswers(self) -> None:
         level = self.levelOptions.getValue()
         stage = self.stageOptions.getValue()
         discipline = self.disciplineOptions.getValue()
+        if self.frameType1:
+            self.frameType1.remove()
+            self.frameType1 = None
         try:
             self.answers = self.data[level][stage][discipline]
             self.logLabel.setText("")
             self.logLabel.deactivate()
-            if discipline == "SSR":
-                self.initSSR(self.answers)
+            if discipline == "SSR" or discipline == "CQR":
+                self.initType1(self.answers)
+            elif discipline == "CPR":
+                self.initType2(self.answers)
         except KeyError:
             if self.logLabel.text == "No data found":
                 self.logLabel.setText(".No data found.")
             else:
                 self.logLabel.setText("No data found")
+            self.checkButton.deactivate()
+            self.clearButton.deactivate()
             self.logLabel.activate()
             self.logLabel.draw()
 
-    def checkSSR(self) -> None:
+    def checkAnswers(self) -> None:
         for i, entry in enumerate(self.entries):
             entry_text = entry.text.replace(" ", "").lower()
             answer_text = self.answers[i].replace(" ", "").lower()
@@ -134,10 +141,10 @@ class Application(Window):
             entry.clear()
             entry.draw()
 
-    def initSSR(self, answers: List[str]) -> None:
-        self.ssrFrame = AbsoluteFrame(self.baseframe, 33, 13, style=RectangleStyle(bg_color=term.on_gray22))
-        self.ssrFrame.place(3, 6)
-        self.table = GridFrame(self.ssrFrame, widths=[3, 6], heights=[1, 1, 1, 1, 1],
+    def initType1(self, answers: List[str]) -> None:
+        self.frameType1 = AbsoluteFrame(self.baseframe, 33, 13, style=RectangleStyle(bg_color=term.on_gray22))
+        self.frameType1.place(3, 6)
+        self.table = GridFrame(self.frameType1, widths=[3, 6], heights=[1, 1, 1, 1, 1],
                                style=RectangleStyle(bg_color=term.on_gray14,
                                                     border_style=BorderStyle.SINGLE,
                                                     border_color=term.orange),
@@ -147,7 +154,7 @@ class Application(Window):
         if len(answers) == 5:
             self.table.place(11, 1)
         elif len(answers) == 10:
-            self.table2 = GridFrame(self.ssrFrame, widths=[3, 6], heights=[1, 1, 1, 1, 1],
+            self.table2 = GridFrame(self.frameType1, widths=[3, 6], heights=[1, 1, 1, 1, 1],
                                     style=RectangleStyle(bg_color=term.on_gray14,
                                                          border_style=BorderStyle.SINGLE,
                                                          border_color=term.orange),
@@ -182,13 +189,12 @@ class Application(Window):
                 entry.setOnChange(lambda entry=entry: entry.setStyle(RectangleStyle(
                     border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white)))
                 entry.grid(1, i)
-                entry.grid(1, i)
                 self.entries.append(entry)
-        self.ssrFrame.draw()
+        self.frameType1.draw()
+        self.logLabel.deactivate()
         self.checkButton.activate()
         self.clearButton.activate()
-        self.checkButton.onClick(self.checkSSR)
-        self.logLabel.deactivate()
+        self.checkButton.onClick(self.checkAnswers)
         self.buttonFrame.draw()
 
         # Navigation
@@ -196,6 +202,35 @@ class Application(Window):
         self.disciplineOptions.overrideNavigation(Direction.DOWN, self.entries[0])
         self.checkButton.overrideNavigation(Direction.UP, self.entries[-1])
         self.clearButton.overrideNavigation(Direction.UP, self.entries[-1])
+
+    def initType2(self, answers: List[str]) -> None:
+        self.frameType2 = AbsoluteFrame(self.baseframe, 35, 13, style=RectangleStyle(bg_color=term.on_gray22))
+        self.frameType2.place(2, 6)
+        self.table = GridFrame(self.frameType2, widths=[7, 7, 7, 7], heights=[1, 1, 1],
+                               style=RectangleStyle(bg_color=term.on_gray14,
+                                                    border_style=BorderStyle.SINGLE,
+                                                    border_color=term.orange),
+                               inner_border=True)
+        self.table.place(1, 3)
+        self.labels: List[Label] = []
+        self.entries: List[Entry] = []
+        for r in range(3):
+            for c in range(4):
+                entry = Entry(
+                    self.table, width=7, height=1,
+                    style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white),
+                    selected_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8),
+                    focused_style=RectangleStyle(border_style=BorderStyle.NONE, bg_color=term.on_gray8))
+                entry.setOnChange(lambda entry=entry: entry.setStyle(RectangleStyle(
+                    border_style=BorderStyle.NONE, bg_color=term.on_gray10, text_style=term.white)))
+                entry.grid(c, r)
+                self.entries.append(entry)
+        self.frameType2.draw()
+        self.logLabel.deactivate()
+        self.checkButton.activate()
+        self.clearButton.activate()
+        self.checkButton.onClick(self.checkAnswers)
+        self.buttonFrame.draw()
 
 
 if __name__ == "__main__":

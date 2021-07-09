@@ -1,14 +1,19 @@
+# std
 from __future__ import annotations
-from blessed import Terminal
-from exceptions import (
-    BorderOutOfBounds, CellOutOfBounds, ElementNotPlaced, InvalidAttributes, InvalidElement,
-    InvalidLayout, PaddingOverflow, RectangleTooSmall)
+from abc import ABC, abstractclassmethod
+from typing import Callable, Text, Tuple, Union, List, Optional
+
+# 3rd party
 import numpy as np
 from math import degrees, atan2
-from typing import Callable, Text, Tuple, Union, List, Optional
-from abc import ABC, abstractclassmethod
-from helpers import gaussian, getFirstAssigned
-from constants import (
+from blessed import Terminal
+
+# local
+from .exceptions import (
+    BorderOutOfBounds, CellOutOfBounds, ElementNotPlaced, InvalidAttributes, InvalidElement,
+    InvalidLayout, PaddingOverflow, RectangleTooSmall)
+from .helpers import gaussian, getFirstAssigned
+from .constants import (
     BorderStyle, Direction, HAlignment, Layout, Response, VAlignment, State,
     Side, WindowState, MAX_ANGLE)
 
@@ -75,8 +80,10 @@ class Element(ABC):
     def isActive(self) -> bool:
         return self.active
 
-    def activate(self) -> None:
+    def activate(self, draw: bool = True) -> None:
         self.active = True
+        if draw:
+            self.draw()
 
     def deactivate(self) -> None:
         self.active = False
@@ -120,6 +127,7 @@ class Element(ABC):
     def remove(self) -> None:
         self.deactivate()
         self.parent.removeElement(self)
+        self = None
 
 
 class HasText(ABC):
@@ -889,10 +897,14 @@ class Window():
 
     def loop(self):
         with self.term.cbreak():
+            self.clear()
+            self.draw()
             res = Response.CONTINUE
             while res != Response.QUIT:
                 val = self.term.inkey(timeout=3)
                 res = self.handleKeyEvent(val)
+            self.clear()
+            self.flush()
 
 
 Parent = Union[Frame, Window]
@@ -1175,7 +1187,6 @@ class Entry(Focusable, HasText):
             elif val.name == "KEY_BACKSPACE":
                 if self.cursor_pos > 0:
                     self.setText(self.text[:self.cursor_pos - 1] + self.text[self.cursor_pos:])
-                    self.cursor_pos = max(self.cursor_pos - 1, 0)
                     self.draw()
                 return Response.COMPLETE
             elif val.name == "KEY_ENTER":

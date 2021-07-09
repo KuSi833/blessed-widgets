@@ -1,0 +1,75 @@
+{
+    "Beginner": {
+        "1": {
+            "SSR": ["A", "D", "E", "D", "A"],
+            "CPR": [
+                "A", "E", "A", "D",
+                "D", "A", "E", "D",
+                "E", "A", "E", "D"
+            ]
+        },
+        "2": {
+            "CQR": ["maj", "min", "maj", "maj", "min"],
+            "SSR": ["Am", "E", "Dm", "A", "D"],
+            "CPR": [
+                "Am", "E", "Am", "Dm",
+                "D", "A", "Am", "E",
+                "E", "D", "Dm", "A"
+            ]
+        },
+        "3": {
+            "CQR": ["min", "min", "maj", "min", "maj"],
+            "SSR": ["G", "C", "Am", "E", "Dm"],
+            "CPR": [
+                "G", "C", "D", "C",
+                "A", "E", "D", "E",
+                "Am", "C", "G", "E"
+            ]
+        },
+        "4": {
+            "CQR": ["maj", "7", "maj", "min", "7"],
+            "SSR": ["A", "Em", "G7", "B7", "C"],
+            "CPR": [
+                "G", "Am", "C", "Fmaj7",
+                "C", "G7", "C", "D",
+                "G", "B7", "Em", "C"
+            ]
+        },
+        "5": {
+            "CQR": ["maj", "min", "maj", "7", "min", "7", "min", "maj", "maj", "7"],
+            "SSR": ["Am", "E7", "Fmaj7", "G7", "Dm", "G", "C7", "Em", "A", "C"],
+            "CPR": [
+                "E G", "E G", "A C", "A C",
+                "E7", "B7", "E7", "A7",
+                "E", "C D", "E", "G A"
+            ]
+        },
+        "6": {
+            "CQR": ["min", "7", "min", "maj", "maj", "min", "7", "min", "7", "maj"],
+            "SSR": ["C", "G7", "Fmaj7", "Em", "A7", "Fmaj7", "E", "D", "Am", "7"],
+            "CPR": [
+                "E", "A D", "A E", "A D",
+                "G C", "D", "C Am", "D",
+                "G D", "C", "G D", "Am"
+            ]
+        },
+        "7": {
+            "CQR": ["7", "7", "min", "maj", "7", "min", "7", "min", "maj", "min"],
+            "SSR": ["C7", "F", "Dm", "B7", "G7", "Am", "Em", "G", "F", "Fmaj7"],
+            "CPR": [
+                "G D", "Am", "Am D", "G",
+                "Am", "E", "C", "D E",
+                "F", "Em A7", "Dm", "C G"
+            ]
+        },
+        "8": {
+            "CQR": ["min", "7", "5", "maj", "maj", "5", "7", "maj7", "7", "maj"],
+            "SSR": ["G", "C", "D", "F", "E", "Ab", "C#", "F#", "A#", "D#"],
+            "CPR": [
+                "C5", "G5", "F5", "G5",
+                "D5", "C5", "F5 G5", "A5",
+                "F5 Bb5", "Ab5 Db5", "F5 Bb5", "Ab5 Db5"
+            ]
+        }
+    }
+}

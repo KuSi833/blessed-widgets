@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "blessed_widgets"
+version = "1.0.0"
+description = "A high-level terminal interface library for Python"
+authors = ["KuSi833 <kabo.milicic@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "blessed_widgets"}]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+blessed = "^1.18.1"
+numpy = "^1.21.0"
+
+[tool.poetry.dev-dependencies]
+mypy = "^0.910"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
