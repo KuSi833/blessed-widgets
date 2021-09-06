@@ -25,4 +25,4 @@ max_line_length = 120
 
 [tool.yapf]
 based_on_style = "google"
-ALIGN_CLOSING_BRACKET_WITH_VISUAL_INDENT = true
+align_closing_bracket_with_visual_indent = true
