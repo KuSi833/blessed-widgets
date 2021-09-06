@@ -9,6 +9,8 @@ It's purpose is to give relatively simple applications a visual interface.
 
 It has all the capabilities as [blessed](https://github.com/jquast/blessed), but with the rigorous work of creating and managing widgets abstracted away. For the full documentation visit the Repository Wiki.
 
+---
+
 ## Example
 ### Sound Recognition
 
@@ -21,6 +23,10 @@ Based around [Justin Guitar's Course](https://www.justinguitar.com/).
 
 ![image1](images/1.PNG)
 ![image2](images/2.PNG)
+
+![Full Code](examples/sound_recognition.py), and other examples can be found in the `./examples/` folder.
+
+---
 
 ### Motivation
 
