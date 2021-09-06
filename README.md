@@ -1,7 +1,5 @@
 # blessed_widgets
 
----
-
 ## Introduction
 
 A purely Python library which implements high-level widgets using [blessed](https://github.com/jquast/blessed).
@@ -18,7 +16,7 @@ It could make it easier for others to use by labeling input fields, or showing t
 
 Maybe building an entire **GUI** for your simple subtitle arranger application is not worth the hastle, but you still want the functionality of buttons and entry fields.
 
-I was inspired to make this library because I wanted to make an application for sound-recognition for hearing/pitch training. If anyone is wondering I'm talking about [Justin Guitar's Course](https://www.justinguitar.com/).
+I was inspired to make this library because I wanted to make an application for sound-recognition for hearing/pitch training. 
 A **CLI** wouldn't make it clear at which stage/discipline I was, nor in which way would I have to input the fields. Meanwhile to have a good looking **GUI** application is too much hastle for such a simple purpose. A **TUI** seemed like the perfect middle.
 
 ### Comparison with other Interfaces
@@ -27,3 +25,16 @@ A **CLI** wouldn't make it clear at which stage/discipline I was, nor in which w
 2. If the application needs to be used frequently with a large ammount of input from the user and has little to no graphical elements a **CLI** would be preferred.
 
 ---
+
+## Example
+### Sound Recognition
+
+Application for pitch training in: 
+1. Sound Quality Recognition
+2. Single Sound Recognition
+3. Chord Progression Recognition.
+
+Based around [Justin Guitar's Course](https://www.justinguitar.com/).
+
+![image1](images/1.PNG)
+![image2](images/2.PNG)
