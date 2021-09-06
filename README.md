@@ -9,6 +9,19 @@ It's purpose is to give relatively simple applications a visual interface.
 
 It has all the capabilities as [blessed](https://github.com/jquast/blessed), but with the rigorous work of creating and managing widgets abstracted away. For the full documentation visit the Repository Wiki.
 
+## Example
+### Sound Recognition
+
+Application for pitch training in: 
+1. Sound Quality Recognition
+2. Single Sound Recognition
+3. Chord Progression Recognition.
+
+Based around [Justin Guitar's Course](https://www.justinguitar.com/).
+
+![image1](images/1.PNG)
+![image2](images/2.PNG)
+
 ### Motivation
 
 Maybe your **CLI** application could improve with some visuals?
@@ -23,18 +36,3 @@ A **CLI** wouldn't make it clear at which stage/discipline I was, nor in which w
 
 1. If the application has a high ammount of widgets then resolution and navigation becomes a problem, and a **GUI** would be preferred.
 2. If the application needs to be used frequently with a large ammount of input from the user and has little to no graphical elements a **CLI** would be preferred.
-
----
-
-## Example
-### Sound Recognition
-
-Application for pitch training in: 
-1. Sound Quality Recognition
-2. Single Sound Recognition
-3. Chord Progression Recognition.
-
-Based around [Justin Guitar's Course](https://www.justinguitar.com/).
-
-![image1](images/1.PNG)
-![image2](images/2.PNG)
